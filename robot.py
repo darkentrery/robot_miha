@@ -1,10 +1,8 @@
 import ast
-import datetime
 import time
 
 import robot_positions as positions
 import robot_conditions as conditions
-from datetime import timedelta
 
 from sys import argv
 from robot_db import Config, Positions, Algo, Price, Summary
@@ -19,16 +17,11 @@ logger.add("debug.log", format="{time} {level} {message}", level="DEBUG")
 print('=============================================================================')
 
 
-config = Config(launch)
-pos = Positions(launch)
-price = Price(launch)
-algo = Algo(launch)
-summary = Summary(launch)
 
-
+#---------------for first launch------------------------------
 
 # создание параметров для записис в прайс до момента срабатывания позиций
-def get_null_order(order, launch):
+def get_null_order(order, launch, summary):
     sum = summary.get_summary()
 
     if launch['mode'] == 'robot':
@@ -43,7 +36,7 @@ def get_null_order(order, launch):
     return order
 
 # наполнение массива launch
-def init_launch(launch):
+def init_launch(launch, config, summary):
     algorithm_prefix = 'algo_'
     config.get_0_config(launch, data)
 
@@ -51,7 +44,7 @@ def init_launch(launch):
 
     for stream in launch['streams']:
         stream['algorithm'] = algorithm_prefix + str(stream['algorithm_num'])
-        stream['order'] = get_null_order(None, launch)
+        stream['order'] = get_null_order(None, launch, summary)
         stream['execute'] = False # переменная для проверки срабатывания условий, требуется чтобы корректно писать rpl_total_percent
         host = 'http://' + data[f"host_exchange_{stream['id']}"]
         stream['url'] = stream.setdefault('url', host)
@@ -85,7 +78,7 @@ def get_activation_blocks(action_block, blocks):
     return activation_blocks
 
 # активация стримов, подготовка таблиц
-def init_algo(launch):
+def init_algo(launch, price, algo, pos):
     print("init_algo")
     # удаление информации из таблицы прайс
     price.delete_pnl_from_price(launch)
@@ -110,6 +103,8 @@ def init_algo(launch):
             # очистка таблицы позиций
             pos.clear_table_positions(stream)
 
+#---------------------------functions for every ticks------------------------
+
 # проверка срабатывания одного из условий
 def check_condition(condition, candles):
     # проверяем каждый тип с помощбю функций из модуля robot_conditions
@@ -117,17 +112,22 @@ def check_condition(condition, candles):
         if conditions.check_candle(condition, candles):
             return True
 
-
     elif condition['type'] == 'trailing':
-        pass
+        if conditions.check_trailing(condition, candles):
+            return True
+
     elif condition['type'] == 'reject':
-        pass
+        if conditions.check_reject(condition, candles):
+            return True
+
     elif condition['type'] == 'reverse':
-        pass
+        if conditions.check_reverse(condition, candles):
+            return True
+
     return False
 
 # выполнение действия
-def execute_action(stream, block, candles, position):
+def execute_action(stream, block, candles, position, pos):
     print("execute_action")
     positions.update_position(stream, block, candles, position, pos)
     stream['activation_blocks'] = get_activation_blocks(block['id'], stream['blocks'])
@@ -135,7 +135,7 @@ def execute_action(stream, block, candles, position):
 
 
 # проверка условий в блоке
-def check_block(stream, candles, position):
+def check_block(stream, candles, position, pos):
     print("check_block")
     numbers = 3
     activation_blocks = stream['activation_blocks']
@@ -153,7 +153,7 @@ def check_block(stream, candles, position):
                         bool_numbers[num] = False
 
             if bool_numbers[num]:
-                execute_action(stream, block, candles, position)
+                execute_action(stream, block, candles, position, pos)
                 stream['execute'] = True
                 return
 
@@ -162,7 +162,7 @@ def check_block(stream, candles, position):
         for block in activation_blocks:
             for condition in block['conditions']:
                 if check_condition(condition, candles):
-                    execute_action(stream, block, candles, position)
+                    execute_action(stream, block, candles, position, pos)
                     stream['execute'] = True
                     return
 
@@ -185,12 +185,8 @@ def set_parametrs(launch, candles, price):
         balance += stream['order']['balance']
         set_query = set_query + f"pnl_{stream['id']}={str(last_order['pnl'])},"
 
-
     if stream['execute']:
         launch['rpl_total_percent'] += 100 * total['rpl_total'] / balance
-
-
-
     total['rpl_total_percent'] = launch['rpl_total_percent']
 
     price.set_pnl(set_query, total, candles)
@@ -198,11 +194,16 @@ def set_parametrs(launch, candles, price):
 
 @logger.catch
 def main_loop(launch, robot_is_stoped):
+    config = Config(launch)
+    pos = Positions(launch)
+    price = Price(launch)
+    algo = Algo(launch)
+    summary = Summary(launch)
 
-    init_launch(launch)
+    init_launch(launch, config, summary)
 
     if config.db_get_state(launch) != True:
-        init_algo(launch)
+        init_algo(launch, price, algo, pos)
 
     position = [positions.Position() for _ in launch['streams']]
 
@@ -227,7 +228,7 @@ def main_loop(launch, robot_is_stoped):
         for stream in launch['streams']:
 
             if len(candles) > 1:
-                check_block(stream, candles, position)
+                check_block(stream, candles, position, pos)
 
         # запись параметров в таблицу прайс
         set_parametrs(launch, candles, price)
