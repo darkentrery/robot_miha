@@ -8,6 +8,16 @@ def check_candle(condition, candles):
         return True
 
 
+def check_trailing(condition, candles):
+    pass
+
+def check_reject(condition, candles):
+    pass
+
+def check_reverse(condition, candles):
+    pass
+
+
 
 
 
@@ -15,7 +25,7 @@ def check_candle(condition, candles):
 #------------old------------------
 
 
-
+"""
 def check_trailing(condition, block, candle, order, launch):
     direction = order['direction']
 
@@ -217,5 +227,5 @@ def check_reverse(condition, block, candle, order, launch):
 
 
     print("Good")
-    return True
+    return True"""
 
