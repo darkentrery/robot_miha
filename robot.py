@@ -7,9 +7,10 @@ import robot_conditions as conditions
 from datetime import timedelta
 
 from sys import argv
-from robot_db import Config, Positions, Algo, Price
+from robot_db import Config, Positions, Algo, Price, Summary
 from loguru import logger
 from robot_constants import launch, data, SYMBOL, robot_is_stoped
+from robot_trading import get_robot_status
 
 
 logger.add("debug.log", format="{time} {level} {message}", level="DEBUG")
@@ -22,42 +23,23 @@ config = Config(launch)
 pos = Positions(launch)
 price = Price(launch)
 algo = Algo(launch)
+summary = Summary(launch)
 
 
 
-# создание ордера с нулевыми параметрами
-def get_new_order(order, launch):
+# создание параметров для записис в прайс до момента срабатывания позиций
+def get_null_order(order, launch):
+    sum = summary.get_summary()
+
     if launch['mode'] == 'robot':
         pass
 
     elif launch['mode'] == 'tester':
-        if order == None:
+        if not order:
             order = {}
-
-        order['balance'] = 1
-
-        order['open_time_order'] = 0
-        order['open_time_position'] = 0
-        order['close_time_position'] = 0
-        order['close_time_order'] = 0
-
-        order['trailings'] = {}
-        order['abs'] = {}
-        order['reject'] = {}
-        order['candle'] = {}
-
-        order['leverage'] = 1
-        order['direction'] = 0
-        order['order_type'] = None
-        order['state'] = 'start'
-        order['block_id'] = ''
-        order['pnl'] = 0
-        order['rpl'] = 0
-
-        if launch.get('many_metadata') != None and launch.get('many_metadata') != {}:
-            order['leverage'] = 1
-            order['equity'] = 1
-
+            order['balance'] = sum[1] / sum[2]
+            order['pnl'] = 0
+            order['rpl'] = 0
     return order
 
 # наполнение массива launch
@@ -65,22 +47,16 @@ def init_launch(launch):
     algorithm_prefix = 'algo_'
     config.get_0_config(launch, data)
 
-    launch['exchange_metadata'] = {"exchange": "binance"}
-    launch['streams'] = []
     launch['rpl_total_percent'] = 0
 
-    if launch['traiding_mode'] == 'many':
-        for ord_many in launch['many_metadata']['streams']:
-            stream_element = {}
-            stream_element['algorithm'] = algorithm_prefix + str(ord_many['algorithm'])
-            stream_element['order'] = get_new_order(None, launch)
-            stream_element['id'] = ord_many['id']
-            host = 'http://localhost:1010'
-            host = 'http://46.101.164.69:1010'
-            stream_element['url'] = ord_many.setdefault('url', host)
-            stream_element['balancing_symbol'] = ord_many.setdefault('balancing_symbol', SYMBOL)
+    for stream in launch['streams']:
+        stream['algorithm'] = algorithm_prefix + str(stream['algorithm_num'])
+        stream['order'] = get_null_order(None, launch)
+        stream['execute'] = False # переменная для проверки срабатывания условий, требуется чтобы корректно писать rpl_total_percent
+        host = 'http://' + data[f"host_exchange_{stream['id']}"]
+        stream['url'] = stream.setdefault('url', host)
+        stream['balancing_symbol'] = stream.setdefault('balancing_symbol', SYMBOL)
 
-            launch['streams'].append(stream_element)
 
 
 # преобразование полученных данных из таблиц алгоритмов в форму словаря
@@ -151,19 +127,20 @@ def check_condition(condition, candles):
     return False
 
 # выполнение действия
-def execute_action(stream, block, candles, equity):
+def execute_action(stream, block, candles, position):
     print("execute_action")
-    positions.update_position(stream, block, candles, equity, pos)
+    positions.update_position(stream, block, candles, position, pos)
     stream['activation_blocks'] = get_activation_blocks(block['id'], stream['blocks'])
     print(f"{stream['activation_blocks']=}")
 
 
 # проверка условий в блоке
-def check_block(stream, candles, equity):
+def check_block(stream, candles, position):
     print("check_block")
     numbers = 3
     activation_blocks = stream['activation_blocks']
     bool_numbers = [False for n in range(numbers)]
+    stream['execute'] = False
 
     # вначале проверяем условия по намберам
     for block in activation_blocks:
@@ -176,7 +153,8 @@ def check_block(stream, candles, equity):
                         bool_numbers[num] = False
 
             if bool_numbers[num]:
-                execute_action(stream, block, candles, equity)
+                execute_action(stream, block, candles, position)
+                stream['execute'] = True
                 return
 
     # если намберы не сработали проверяем остльные условия
@@ -184,40 +162,12 @@ def check_block(stream, candles, equity):
         for block in activation_blocks:
             for condition in block['conditions']:
                 if check_condition(condition, candles):
-                    execute_action(stream, block, candles, equity)
+                    execute_action(stream, block, candles, position)
+                    stream['execute'] = True
                     return
 
 
-# проверка остановки робота
-def get_robot_status(launch, robot_is_stoped):
-    if launch['mode'] == 'robot':
-        try:
-            trading_status = config.get_trading_status()
-        except Exception as e:
-            print(e)
-            return True
 
-        if robot_is_stoped and trading_status == 'on':
-            robot_is_stoped = False
-            print('Робот запущен')
-
-        order = get_new_order(None, launch)  # !!!!! delete
-        robot_must_stop = (trading_status == 'off'
-                           or (launch['trading_status'] == "off_after_close" and order['open_time_position'] == 0)
-                           or trading_status == 'off_now_close')
-
-        if robot_must_stop and robot_is_stoped == False:
-            robot_is_stoped = True
-            print('Робот остановлен')
-            if trading_status != 'off':
-                config.db_clear_state()
-                launch = init_launch()
-                init_algo(launch)
-
-        launch['trading_status'] = trading_status
-
-        if robot_is_stoped:
-            return True
 
 # запись параметров в таблицу прайс
 def set_parametrs(launch, candles, price):
@@ -234,8 +184,15 @@ def set_parametrs(launch, candles, price):
         last_order = stream['order']
         balance += stream['order']['balance']
         set_query = set_query + f"pnl_{stream['id']}={str(last_order['pnl'])},"
-    total['rpl_total_percent'] = 100 * total['rpl_total'] / balance + launch['rpl_total_percent']
-    launch['rpl_total_percent'] = total['rpl_total_percent']
+
+
+    if stream['execute']:
+        launch['rpl_total_percent'] += 100 * total['rpl_total'] / balance
+
+
+
+    total['rpl_total_percent'] = launch['rpl_total_percent']
+
     price.set_pnl(set_query, total, candles)
 
 
@@ -284,31 +241,4 @@ main_loop(launch, robot_is_stoped)
 
 
 
-
-# ---------- old ---------------
-cur_time_frame = {}
-
-def log_condition(time, info):
-    if time == None:
-        time = datetime.datetime.utcnow()
-    print(str(time) + " --- " + info)
-
-
-def get_cur_time():
-    return datetime.datetime.utcnow()
-
-
-def get_cur_timeframe(cur_time_frame, cur_time, time_frame):
-    if cur_time_frame == {}:
-        cur_time_frame['start'] = cur_time.replace(hour=0, minute=0, second=0, microsecond=0)
-        cur_time_frame['finish'] = cur_time_frame['start'] + timedelta(minutes=time_frame)
-
-    while True:
-        if cur_time_frame['start'] <= cur_time and cur_time < cur_time_frame['finish']:
-            break
-        else:
-            cur_time_frame['start'] = cur_time_frame['start'] + timedelta(minutes=time_frame)
-            cur_time_frame['finish'] = cur_time_frame['start'] + timedelta(minutes=time_frame)
-
-    return cur_time_frame
 
