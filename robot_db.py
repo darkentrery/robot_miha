@@ -223,31 +223,31 @@ class Positions(Connector):
             print(e)
 
     def get_last_order(self, stream):
-        many_params = {}
+        parametrs = {}
         query = f"SELECT balance, leverage, order_price, order_size, position_price, position_size FROM {self.symbol}_pos_{stream['id']} order by id desc LIMIT 1"
         self.cursor.execute(query)
-        for (many_params['balance'], many_params['leverage'], many_params['price_order'], many_params['size_order'],
-             many_params['price_position'],
-             many_params['size_position']) in self.cursor:
-             return many_params
+        for (parametrs['balance'], parametrs['leverage'], parametrs['price_order'], parametrs['size_order'],
+             parametrs['price_position'],
+             parametrs['size_position']) in self.cursor:
+             return parametrs
 
-        return many_params
+        return parametrs
 
-    def db_insert_position(self, stream, candle, many_params_source):
+    def db_insert_position(self, stream, candle, parametrs):
 
         try:
             data = (
-                many_params_source['direction'],
-                many_params_source['balance'],
+                parametrs['direction'],
+                parametrs['balance'],
                 candle['time'].strftime('%y/%m/%d %H:%M:%S'),
-                many_params_source['price_order'],
-                many_params_source['leverage'],
-                many_params_source['size_order'],
-                many_params_source['price_position'],
-                many_params_source['size_position'],
-                many_params_source['order_type'],
-                many_params_source['block_id'],
-                many_params_source['rpl']
+                parametrs['price_order'],
+                parametrs['leverage'],
+                parametrs['size_order'],
+                parametrs['price_position'],
+                parametrs['size_position'],
+                parametrs['order_type'],
+                parametrs['block_id'],
+                parametrs['rpl']
             )
 
             query = f"INSERT INTO {self.symbol}_pos_{stream['id']} (side, balance, order_time, order_price, leverage, order_size, position_price, position_size, order_type, block_id, rpl) VALUES {data}"
@@ -257,7 +257,7 @@ class Positions(Connector):
         except Exception as e:
             print(e)
             self.cursor = self.get_db_connection()
-            self.db_insert_position(stream, candle, many_params_source)
+            self.db_insert_position(stream, candle, parametrs)
 
 
 # класс для работы с таблицей 0_summary
