@@ -14,6 +14,7 @@ class Connector:
         self.symbol = launch['db']['pair']
         self.config_table = launch['config_table']
         self.price_table = launch['price_table_name']
+        self.summary_table = launch['summary_table']
 
         self.cursor = self.get_db_connection()
 
@@ -108,11 +109,9 @@ class Config(Connector):
         rows = self.cursor.fetchone()
         launch['percent_level'] = str(rows[1])
         algorithm = [str(a) for a in rows[3:5] if int(a)]
-        launch['many_metadata'] = {
-            'streams': [{'algorithm': a, 'id': str(id + 1)} for id, a in enumerate(algorithm) if a],
-            'balance': data['balance']
-        }
-        print(f"{launch['many_metadata']=}")
+        launch['streams'] = [{'algorithm_num': a, 'id': str(id + 1)} for id, a in enumerate(algorithm) if a]
+
+        print(f"{launch=}")
 
     def get_trading_status(self):
         try:
@@ -259,6 +258,22 @@ class Positions(Connector):
             print(e)
             self.cursor = self.get_db_connection()
             self.db_insert_position(stream, candle, many_params_source)
+
+
+# класс для работы с таблицей 0_summary
+class Summary(Connector):
+
+    def get_summary(self):
+        print("get_summary")
+        try:
+            query = f"SELECT * FROM {self.summary_table}"
+            self.cursor.execute(query)
+
+        except Exception as e:
+            print('Ошибка получения таблицы с настройками, причина: ')
+            print(e)
+        rows = self.cursor.fetchone()
+        return rows
 
 
 
