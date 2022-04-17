@@ -14,39 +14,6 @@ def check_candle(condition, candles):
 
 #------------old------------------
 
-def check_candle_direction_0(condition, candles):
-    if condition.get('side') == None:
-        return False
-    if len(candles) < 3:
-        return False
-
-    condition.setdefault('offset', -1)
-
-    if condition['offset'] == -1:
-        cond_candle = candles[1]
-        id = 1
-    elif condition['offset'] == -2:
-        cond_candle = candles[2]
-        id = 2
-    else:
-        return False
-    print(f"{cond_candle=}")
-    if cond_candle == None or cond_candle.get('price') == None:
-        return False
-
-    result = False
-
-    if candles[id]['price'] >= candles[id + 1]['price'] and condition['side'] == 'buy':
-        result = candles[0]['price']
-    elif candles[id]['price'] < candles[id + 1]['price'] and condition['side'] == 'sell':
-        result = candles[0]['price']
-
-    if result != False:
-        log_condition(candles[0]['time'],
-                      "candle_direction(" + "candle = " + str(condition['offset']) + ", side = " + condition[
-                          'side'] + ", price=" + str(candles[0]['price']) + ")")
-
-    return result
 
 
 def check_trailing(condition, block, candle, order, launch):
