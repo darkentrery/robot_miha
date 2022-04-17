@@ -63,7 +63,7 @@ class Price(Connector):
             return self.get_candles(launch)
 
     def delete_pnl_from_price(self, launch):
-        print("delete_equity_from_price")
+        print("delete_pnl_from_price")
         if launch['mode'] != 'tester':
             return
         set_query = ""
