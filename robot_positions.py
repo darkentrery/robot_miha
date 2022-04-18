@@ -1,6 +1,7 @@
 import ast
 import time
 import requests
+import decimal
 
 
 class Position():
@@ -60,30 +61,42 @@ class Position():
 
 
 
-def update_position(stream, block, candles, position, pos):
+def update_position(launch, stream, block, candles, position, pos):
     candle = candles[0]
-    stream['order'] = get_params(stream, block, candles, position, pos)
-    pos.db_insert_position(stream, candle, stream['order'])
+
+    for action in block['actions']:
+        local_stream = stream
+        if 'stream' in action:
+            local_stream = launch['streams'][action['stream'] - 1]
+        stream['order'] = get_params(local_stream, block, action, candles, position, pos)
+        pos.db_insert_position(local_stream, candle, stream['order'])
+
+    #stream['order'] = get_params(stream, block, candles, position, pos)
+    #pos.db_insert_position(stream, candle, stream['order'])
 
 
-def get_leverage(block, parametrs):
-    if 'leverage_up' in block['actions'][0]:
-        leverage = parametrs['leverage'] + block['actions'][0]['leverage_up']
-    elif 'leverage_down' in block['actions'][0]:
-        leverage = 0
-    elif 'leverage' in block['actions'][0]:
-        leverage = block['actions'][0]['leverage']
+def get_leverage(action, parametrs):
+    leverage_0 = decimal.Decimal(parametrs['leverage'])
+    if 'leverage_up' in action:
+        leverage = leverage_0 + action['leverage_up']
+    elif 'leverage_down' in action:
+        down = decimal.Decimal(action['leverage_down'].strip('%'))
+        leverage = leverage_0 * (1 - down / 100)
     else:
-        leverage = parametrs['leverage']
+        leverage = leverage_0
+
+    if 'leverage_max' in action:
+        if action['leverage_max'] < leverage:
+            leverage = action['leverage_max']
     return leverage
 
 
-def get_params(stream, block, candles, position, pos):
+def get_params(stream, block, action, candles, position, pos):
     candle = candles[0]
     print(f"{candles=}")
     parametrs = pos.get_last_order(stream)
     #direction = stream['activation_blocks'][0]['actions'][0]['direction']
-    direction = block['actions'][0]['direction']
+    direction = action['direction']
     print(f"{direction=}")
     print(f"{parametrs=}")
 
@@ -98,7 +111,7 @@ def get_params(stream, block, candles, position, pos):
         position[int(stream['id']) - 1].first_start(parametrs['balance'], parametrs['leverage'], parametrs['price_order'],
                                                     parametrs['size_order'], parametrs['price_position'], parametrs['size_position'], candles[1]['price'])
 
-    leverage = get_leverage(block, parametrs)
+    leverage = get_leverage(action, parametrs)
 
     print(f"{leverage=}")
 
@@ -117,7 +130,7 @@ def get_params(stream, block, candles, position, pos):
         parametrs[k] = params_dict[k]
     parametrs['last'] = True
     parametrs['direction'] = direction
-    parametrs['order_type'] = block['actions'][0]['order_type']
+    parametrs['order_type'] = action['order_type']
     parametrs['block_id'] = block['id']
     print(f"{stream['id']} {parametrs=}")
 
