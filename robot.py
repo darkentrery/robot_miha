@@ -70,10 +70,16 @@ def get_activation_blocks(action_block, blocks):
         activation_blocks = []
         for block in blocks:
             if block['id'] == action_block:
-                for act in block['activations']:
+                print(f"{block['activations']=}")
+                if not block['activations'][0]:
                     for b in blocks:
-                        if b['id'] == act:
+                        if '0' in b['activations']:
                             activation_blocks.append(b)
+                else:
+                    for act in block['activations']:
+                        for b in blocks:
+                            if b['id'] == act:
+                                activation_blocks.append(b)
 
     return activation_blocks
 
@@ -127,19 +133,19 @@ def check_condition(condition, candles):
     return False
 
 # выполнение действия
-def execute_action(stream, block, candles, position, pos):
+def execute_action(launch, stream, block, candles, position, pos):
     print("execute_action")
-    positions.update_position(stream, block, candles, position, pos)
+    positions.update_position(launch, stream, block, candles, position, pos)
     stream['activation_blocks'] = get_activation_blocks(block['id'], stream['blocks'])
     print(f"{stream['activation_blocks']=}")
 
 
 # проверка условий в блоке
-def check_block(stream, candles, position, pos):
+def check_block(launch, stream, candles, position, pos):
     print("check_block")
     numbers = 3
     activation_blocks = stream['activation_blocks']
-    bool_numbers = [False for n in range(numbers)]
+    bool_numbers = [False for _ in range(numbers)]
     stream['execute'] = False
 
     # вначале проверяем условия по намберам
@@ -153,7 +159,7 @@ def check_block(stream, candles, position, pos):
                         bool_numbers[num] = False
 
             if bool_numbers[num]:
-                execute_action(stream, block, candles, position, pos)
+                execute_action(launch, stream, block, candles, position, pos)
                 stream['execute'] = True
                 return
 
@@ -162,7 +168,7 @@ def check_block(stream, candles, position, pos):
         for block in activation_blocks:
             for condition in block['conditions']:
                 if check_condition(condition, candles):
-                    execute_action(stream, block, candles, position, pos)
+                    execute_action(launch, stream, block, candles, position, pos)
                     stream['execute'] = True
                     return
 
@@ -228,9 +234,9 @@ def main_loop(launch, robot_is_stoped):
         for stream in launch['streams']:
 
             if len(candles) > 1:
-                check_block(stream, candles, position, pos)
+                check_block(launch, stream, candles, position, pos)
 
-        # запись параметров в таблицу прайс
+        # запись значений в таблицу прайс
         set_parametrs(launch, candles, price)
 
         print(f"{launch=}")
