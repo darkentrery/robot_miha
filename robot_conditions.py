@@ -15,7 +15,20 @@ def check_reject(condition, candles):
     pass
 
 def check_reverse(condition, candles):
-    pass
+    print("check_reverse")
+    amount = int(condition['amount'])
+    if len(candles) < amount + 1:
+        return False
+    for a in range(1):
+        if candles[a]['price'] > candles[a + 1]['price']:
+            return False
+    for a in range(1, amount):
+        if candles[a]['price'] < candles[a + 1]['price']:
+            return False
+
+    print("Good")
+    return True
+
 
 
 
