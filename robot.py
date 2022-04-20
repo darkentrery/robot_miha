@@ -224,7 +224,7 @@ def main_loop(launch, robot_is_stoped):
         candles = price.get_candles(launch)
         if not candles:
             print(f"В таблице price нет новых строк, последняя строка {launch['last_id']}")
-            continue
+            break
 
         # работа при условии что в таблице прайс есть хотя бы одна запись
         if len(candles) == 0:
