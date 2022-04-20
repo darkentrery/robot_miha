@@ -247,7 +247,7 @@ def main_loop(launch, robot_is_stoped):
         # проверка условий и исполнение действий для каждого потока
         for stream in launch['streams']:
 
-            if len(candles) > 1:
+            if len(candles) > 2:
                 check_block(launch, stream, candles, position, pos)
 
         # запись значений в таблицу прайс
