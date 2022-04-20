@@ -1,8 +1,9 @@
 import ast
+import decimal
 import time
 
 import robot_positions as positions
-import robot_conditions as conditions
+from robot_conditions import check_condition
 
 from sys import argv
 from robot_db import Config, Positions, Algo, Price, Summary
@@ -41,6 +42,7 @@ def init_launch(launch, config, summary):
     config.get_0_config(launch, data)
 
     launch['rpl_total_percent'] = 0
+    launch['rpl_total'] = 0
 
     for stream in launch['streams']:
         stream['algorithm'] = algorithm_prefix + str(stream['algorithm_num'])
@@ -59,6 +61,12 @@ def convert_algorithm_data(algorithm_data):
         h = ast.literal_eval(a[2])
         activations = a[3].split(',')
         blocks.append({'id': str(a[0]), 'name': a[1], 'conditions': h['conditions'], 'actions': h['actions'], 'activations': activations})
+
+    # задаем по умолчанию 'order_type': 'limit_refresh'
+    for block in blocks:
+        for action in block['actions']:
+            if not 'order_type' in action:
+                action['order_type'] = 'limit_refresh'
 
     return blocks
 
@@ -111,26 +119,6 @@ def init_algo(launch, price, algo, pos):
 
 #---------------------------functions for every ticks------------------------
 
-# проверка срабатывания одного из условий
-def check_condition(condition, candles):
-    # проверяем каждый тип с помощбю функций из модуля robot_conditions
-    if condition['type'] == 'candle':
-        if conditions.check_candle(condition, candles):
-            return True
-
-    elif condition['type'] == 'trailing':
-        if conditions.check_trailing(condition, candles):
-            return True
-
-    elif condition['type'] == 'reject':
-        if conditions.check_reject(condition, candles):
-            return True
-
-    elif condition['type'] == 'reverse':
-        if conditions.check_reverse(condition, candles):
-            return True
-
-    return False
 
 # выполнение действия
 def execute_action(launch, stream, block, candles, position, pos):
@@ -157,6 +145,7 @@ def check_block(launch, stream, candles, position, pos):
                         bool_numbers[num] = True
                     else:
                         bool_numbers[num] = False
+                        break
 
             if bool_numbers[num]:
                 execute_action(launch, stream, block, candles, position, pos)
@@ -164,13 +153,20 @@ def check_block(launch, stream, candles, position, pos):
                 return
 
     # если намберы не сработали проверяем остльные условия
-    if not True in bool_numbers:
+    number = 1 # если намбер явно не объявлен, то принимается равным 1
+    if not (True in bool_numbers):
         for block in activation_blocks:
             for condition in block['conditions']:
-                if check_condition(condition, candles):
-                    execute_action(launch, stream, block, candles, position, pos)
-                    stream['execute'] = True
-                    return
+                if not ('number' in condition):
+                    if check_condition(condition, candles):
+                        bool_numbers[number] = True
+                    else:
+                        bool_numbers[number] = False
+                        break
+            if bool_numbers[number]:
+                execute_action(launch, stream, block, candles, position, pos)
+                stream['execute'] = True
+                return
 
 
 
@@ -185,14 +181,21 @@ def set_parametrs(launch, candles, price):
     total = {'pnl_total': 0, 'rpl_total': 0, 'rpl_total_percent': 0}
     balance = 0 #!!!!!
     for stream in launch['streams']:
-        total['pnl_total'] += stream['order']['pnl']
-        total['rpl_total'] += stream['order']['rpl']
+        if stream['execute']:
+            total['pnl_total'] += stream['order']['pnl']
+            total['rpl_total'] += stream['order']['rpl']
         last_order = stream['order']
-        balance += stream['order']['balance']
-        set_query = set_query + f"pnl_{stream['id']}={str(last_order['pnl'])},"
+        balance += float(stream['order']['balance'])
+        set_query += f"pnl_{stream['id']}={str(last_order['pnl'])}, "
 
-    if stream['execute']:
-        launch['rpl_total_percent'] += 100 * total['rpl_total'] / balance
+    for stream in launch['streams']:
+        if stream['execute']:
+            launch['rpl_total'] += stream['order']['rpl']
+            launch['rpl_total_percent'] += 100 * stream['order']['rpl'] / balance
+
+        else:
+            continue
+    total['rpl_total'] = launch['rpl_total']
     total['rpl_total_percent'] = launch['rpl_total_percent']
 
     price.set_pnl(set_query, total, candles)
@@ -219,6 +222,9 @@ def main_loop(launch, robot_is_stoped):
             continue
 
         candles = price.get_candles(launch)
+        if not candles:
+            print(f"В таблице price нет новых строк, последняя строка {launch['last_id']}")
+            continue
 
         # работа при условии что в таблице прайс есть хотя бы одна запись
         if len(candles) == 0:
