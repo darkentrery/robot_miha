@@ -17,7 +17,14 @@ logger.add("debug.log", format="{time} {level} {message}", level="DEBUG")
 
 print('=============================================================================')
 
+class Bot():
+    pass
 
+class Robot(Bot):
+    pass
+
+class Tester(Bot):
+    pass
 
 #---------------for first launch------------------------------
 
@@ -78,7 +85,6 @@ def get_activation_blocks(action_block, blocks):
         activation_blocks = []
         for block in blocks:
             if block['id'] == action_block:
-                print(f"{block['activations']=}")
                 if not block['activations'][0]:
                     for b in blocks:
                         if '0' in b['activations']:
@@ -106,7 +112,6 @@ def init_algo(launch, price, algo, pos):
         stream['was_open'] = False
         stream['action_block'] = None
         stream['activation_blocks'] = get_activation_blocks(stream['action_block'], stream['blocks'])
-        print(f"{stream['activation_blocks']=}")
         if len(stream['activation_blocks']) == 0:
             raise Exception('There is no first block in startegy')
 
@@ -134,7 +139,9 @@ def check_block(launch, stream, candles, position, pos):
     numbers = 3
     activation_blocks = stream['activation_blocks']
     bool_numbers = [False for _ in range(numbers)]
-    stream['execute'] = False
+    if (not ('execute_id' in stream)) or stream['execute_id'] != launch['last_id']:
+        stream['execute'] = False
+
 
     # вначале проверяем условия по намберам
     for block in activation_blocks:
@@ -149,7 +156,7 @@ def check_block(launch, stream, candles, position, pos):
 
             if bool_numbers[num]:
                 execute_action(launch, stream, block, candles, position, pos)
-                stream['execute'] = True
+                #stream['execute'] = True
                 return
 
     # если намберы не сработали проверяем остльные условия
@@ -165,7 +172,7 @@ def check_block(launch, stream, candles, position, pos):
                         break
             if bool_numbers[number]:
                 execute_action(launch, stream, block, candles, position, pos)
-                stream['execute'] = True
+                #stream['execute'] = True
                 return
 
 
@@ -214,7 +221,8 @@ def main_loop(launch, robot_is_stoped):
     if config.db_get_state(launch) != True:
         init_algo(launch, price, algo, pos)
 
-    position = [positions.Position() for _ in launch['streams']]
+    #position = [positions.Position() for _ in launch['streams']]
+    position = {'1': positions.Position(), '2': positions.Position()}
 
     # цикл по прайс
     while True:
