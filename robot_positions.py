@@ -9,7 +9,12 @@ class Position():
         self.start = False
 
     def first_start(self, balance, leverage, size_order, price_order, size_position, price_position, close):
-        self.balance = float(balance)
+
+        if 'balance' in self.__dir__():
+            self.balance += self.rpl
+        else:
+            self.balance = float(balance)
+
         self.leverage = float(leverage)
         self.size_order = float(size_order)
         self.price_order = float(price_order)
