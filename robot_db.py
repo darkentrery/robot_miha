@@ -38,7 +38,7 @@ class Price(Connector):
     def set_pnl(self, set_query, total, candles):
         print("set_pnl")
         data = (total['pnl_total'], total['rpl_total'], total['rpl_total_percent'])
-        query = f"UPDATE {self.price_table} SET {set_query} pnl_total={data[0]}, rpl_total={data[1]}, rpl_total_percent={data[2]} WHERE id={candles[0]['id']}"
+        query = f"UPDATE {self.price_table} SET {set_query} pnl_total={data[0]},rpl_total={data[1]}, rpl_total_percent={data[2]} WHERE id={candles[0]['id']}"
         self.cursor.execute(query)
         self.cnx.commit()
 
@@ -50,6 +50,12 @@ class Price(Connector):
             last_id = launch['last_id']
         print(last_id + 1)
         try:
+            query = f"SELECT id FROM {self.price_table} WHERE id = {last_id + 1} order by id desc LIMIT 1"
+            self.cursor.execute(query)
+            row = self.cursor.fetchone()
+            if row is None:
+                return False
+
             query = f"SELECT id, time, close FROM {self.price_table} WHERE id <= {last_id + 1} order by id desc LIMIT 20"
             self.cursor.execute(query)
             rows = self.cursor.fetchall()
@@ -207,7 +213,7 @@ class Positions(Connector):
                 query = f"CREATE TABLE IF NOT EXISTS {self.symbol}_pos_{stream['id']} (id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, block_id VARCHAR (20) NOT NULL," \
                         f" side ENUM('long', 'short') NOT NULL, balance DECIMAL (30, 8) NOT NULL, leverage DECIMAL (30, 2) NOT NULL, order_time DATETIME NOT NULL," \
                         f"order_size DECIMAL (30, 8) NOT NULL, order_price DECIMAL (30, 2) NOT NULL, position_size DECIMAL (30, 8) NOT NULL," \
-                        f" position_price DECIMAL (30, 2) NOT NULL, rpl DECIMAL (30, 8) NOT NULL, order_type ENUM('limit', 'market') NOT NULL);"
+                        f" position_price DECIMAL (30, 2) NOT NULL, rpl DECIMAL (30, 8) NOT NULL, order_type ENUM('limit', 'market', 'limit_refresh') NOT NULL);"
                 self.cursor.execute(query)
                 self.cnx.commit()
 
@@ -237,20 +243,20 @@ class Positions(Connector):
 
         try:
             data = (
+                parametrs['block_id'],
                 parametrs['direction'],
                 parametrs['balance'],
-                candle['time'].strftime('%y/%m/%d %H:%M:%S'),
-                parametrs['price_order'],
                 parametrs['leverage'],
+                candle['time'].strftime('%y/%m/%d %H:%M:%S'),
                 parametrs['size_order'],
-                parametrs['price_position'],
+                parametrs['price_order'],
                 parametrs['size_position'],
-                parametrs['order_type'],
-                parametrs['block_id'],
-                parametrs['rpl']
+                parametrs['price_position'],
+                parametrs['rpl'],
+                parametrs['order_type']
             )
 
-            query = f"INSERT INTO {self.symbol}_pos_{stream['id']} (side, balance, order_time, order_price, leverage, order_size, position_price, position_size, order_type, block_id, rpl) VALUES {data}"
+            query = f"INSERT INTO {self.symbol}_pos_{stream['id']} (block_id, side, balance, leverage, order_time, order_size, order_price, position_size, position_price, rpl, order_type) VALUES {data}"
             self.cursor.execute(query)
             self.cnx.commit()
 
