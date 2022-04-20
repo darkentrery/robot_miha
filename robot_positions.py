@@ -25,13 +25,12 @@ class Position():
         self.rpl = 0
         self.start = True
 
-    def update(self, leverage, close):
-        print(f"{self.leverage=}")
+    def update(self, leverage, close, close_0):
         leverage_0 = self.leverage
         order_leverage = leverage - self.leverage
         self.leverage = leverage
-        self.price_order = self.close
-        print(f"{order_leverage=} {leverage_0=}")
+        #self.price_order = self.close
+        self.price_order = close_0
         if order_leverage > 0:
             self.size_order = order_leverage * (self.balance + self.pnl) / self.price_order
             self.price_position += (self.price_order - self.price_position) * (
@@ -131,10 +130,10 @@ def get_params(stream, block, action, candles, position, pos):
     print(f"{leverage=}")
 
     if direction == 'long':
-        position[stream['id']].update(float(leverage), float(candle['price']))
+        position[stream['id']].update(float(leverage), float(candle['price']), float(candles[1]['price']))
         params = position[stream['id']].update_long()
     elif direction == 'short':
-        position[stream['id']].update(float(leverage), float(candle['price']))
+        position[stream['id']].update(float(leverage), float(candle['price']), float(candles[1]['price']))
         params = position[stream['id']].update_short()
 
     params_name = ('balance', 'leverage', 'size_order', 'price_order', 'size_position', 'price_position', 'price',
