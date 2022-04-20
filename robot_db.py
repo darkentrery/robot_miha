@@ -75,6 +75,7 @@ class Price(Connector):
         set_query = ""
         for stream in launch['streams']:
             set_query = set_query + f"pnl_{stream['id']} = NULL,"
+        set_query ="pnl_1 = NULL, pnl_2 = NULL,"
 
         query = f"UPDATE {self.price_table} SET {set_query} pnl_total = NULL, rpl_total = NULL, rpl_total_percent = NULL"
         self.cursor.execute(query)
