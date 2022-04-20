@@ -115,8 +115,8 @@ class Config(Connector):
         self.cursor.execute(query)
         rows = self.cursor.fetchone()
         launch['percent_level'] = str(rows[1])
-        algorithm = [str(a) for a in rows[3:5] if int(a)]
-        launch['streams'] = [{'algorithm_num': a, 'id': str(id + 1)} for id, a in enumerate(algorithm) if a]
+        algorithm = [str(a) for a in rows[3:5]]
+        launch['streams'] = [{'algorithm_num': a, 'id': str(id + 1)} for id, a in enumerate(algorithm) if a != '0' and a != '']
 
         print(f"{launch=}")
 
