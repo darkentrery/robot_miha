@@ -48,19 +48,20 @@ class Price(Connector):
             last_id = 0
         else:
             last_id = launch['last_id']
-        print(last_id + 1)
+
         try:
-            query = f"SELECT id FROM {self.price_table} WHERE id = {last_id + 1} order by id desc LIMIT 1"
+            query = f"SELECT id FROM {self.price_table} WHERE id > {last_id} order by id asc LIMIT 1"
             self.cursor.execute(query)
             row = self.cursor.fetchone()
             if row is None:
                 return False
 
-            query = f"SELECT id, time, close FROM {self.price_table} WHERE id <= {last_id + 1} order by id desc LIMIT 20"
+            launch['last_id'] = row[0]
+            print(launch['last_id'])
+            query = f"SELECT id, time, close FROM {self.price_table} WHERE id <= {launch['last_id']} order by id desc LIMIT 20"
             self.cursor.execute(query)
             rows = self.cursor.fetchall()
             candles = [{'id': r[0], 'time': r[1], 'price': r[2]} for r in rows]
-            launch['last_id'] = last_id + 1
             return candles
 
         except Exception as e:
@@ -233,9 +234,9 @@ class Positions(Connector):
         parametrs = {}
         query = f"SELECT balance, leverage, order_price, order_size, position_price, position_size FROM {self.symbol}_pos_{stream['id']} order by id desc LIMIT 1"
         self.cursor.execute(query)
-        for (parametrs['balance'], parametrs['leverage'], parametrs['price_order'], parametrs['size_order'],
-             parametrs['price_position'],
-             parametrs['size_position']) in self.cursor:
+        for (parametrs['balance'], parametrs['leverage'], parametrs['order_price'], parametrs['order_size'],
+             parametrs['position_price'],
+             parametrs['position_size']) in self.cursor:
              return parametrs
 
         return parametrs
@@ -249,10 +250,10 @@ class Positions(Connector):
                 parametrs['balance'],
                 parametrs['leverage'],
                 candle['time'].strftime('%y/%m/%d %H:%M:%S'),
-                parametrs['size_order'],
-                parametrs['price_order'],
-                parametrs['size_position'],
-                parametrs['price_position'],
+                parametrs['order_size'],
+                parametrs['order_price'],
+                parametrs['position_size'],
+                parametrs['position_price'],
                 parametrs['rpl'],
                 parametrs['order_type']
             )
