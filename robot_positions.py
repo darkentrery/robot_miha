@@ -36,7 +36,8 @@ class Position():
 
 
 
-    def update(self, leverage, close_0):
+    def update(self, leverage, close_0, balance):
+        self.balance = balance
 
         leverage_0 = self.leverage
         order_leverage = leverage - self.leverage
@@ -99,6 +100,14 @@ def get_leverage(action, parametrs):
             leverage = action['leverage_max']
     return leverage
 
+def get_balance(action, parametrs):
+    balance = parametrs['balance']
+    if 'balance' in action:
+        up = decimal.Decimal(action['balance'].strip('%'))
+        balance = parametrs['balance'] * up / 100
+
+    return balance
+
 
 def get_params(stream, block, action, candles, position, pos):
     candle = candles[0]
@@ -126,9 +135,9 @@ def get_params(stream, block, action, candles, position, pos):
         position[stream['id']].start = False
 
     print(f"{leverage=}")
+    balance = get_balance(action, parametrs)
 
-
-    params = position[stream['id']].update(float(leverage), float(candles[1]['price']))
+    params = position[stream['id']].update(float(leverage), float(candles[1]['price']), float(balance))
     position[stream['id']].update_pnl(float(candles[0]['price']), direction)
 
     params_name = ('balance', 'leverage', 'order_size', 'order_price', 'position_size', 'position_price', 'price',
