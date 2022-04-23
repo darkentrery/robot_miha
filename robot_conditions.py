@@ -1,6 +1,6 @@
 
 # проверка срабатывания одного из условий
-def check_condition(condition, candles):
+def check_condition(condition, candles, position):
     # проверяем каждый тип с помощбю функций из модуля robot_conditions
     if condition['type'] == 'candle':
         if check_candle(condition, candles):
@@ -18,6 +18,11 @@ def check_condition(condition, candles):
         if check_reverse(condition, candles):
             return True
 
+    elif condition['type'] == 'compare':
+        if check_compare(condition, position):
+            return True
+
+
     return False
 
 
@@ -29,6 +34,11 @@ def check_candle(condition, candles):
     elif condition['side'] == 'sell' and candles[1]['price'] < candles[2]['price']:
         return True
 
+def check_compare(condition, position):
+    fields = condition['fields'].split(' ')
+    if fields[0] == 'pnl_1' and fields[1] == '<=' and fields[2] == '0':
+        if position.pnl <= 0:
+            return True
 
 def check_trailing(condition, candles):
     pass
