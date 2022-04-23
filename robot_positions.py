@@ -1,279 +1,164 @@
-
-# проверка срабатывания одного из условий
-def check_condition(launch, condition, candles, position):
-    # проверяем каждый тип с помощбю функций из модуля robot_conditions
-    if condition['type'] == 'candle':
-        if check_candle(condition, candles):
-            return True
-
-    elif condition['type'] == 'trailing':
-        if check_trailing(condition, candles):
-            return True
-
-    elif condition['type'] == 'reject':
-        if check_reject(condition, candles):
-            return True
-
-    elif condition['type'] == 'reverse':
-        if check_reverse(condition, candles):
-            return True
-
-    elif condition['type'] == 'compare':
-        if check_compare(launch, condition, position):
-            return True
+import ast
+import time
+import requests
+import decimal
 
 
-    return False
+class Position():
+    def __init__(self):
+        self.start = False
+
+    def first_start(self, balance, leverage, order_size, order_price, position_size, position_price, close):
+
+        if 'balance' in self.__dir__():
+            #self.balance += self.rpl
+            pass
+        else:
+            self.balance = float(balance)
+
+        self.leverage = float(leverage)
+        self.order_size = float(order_size)
+        self.order_price = float(order_price)
+        self.position_size = float(position_size)
+        self.position_price = float(position_price)
+        self.close = float(close)
+        self.pnl = 0 #(self.close - self.position_price) * self.position_size
+        self.rpl = 0
+        self.start = True
+
+    def update_pnl(self, close_0, direction):
+        if self.start:
+            self.close = close_0
+            if direction == 'long':
+                self.pnl = (self.close - self.position_price) * self.position_size
+            elif direction == 'short':
+                self.pnl = (self.position_price - self.close) * self.position_size
 
 
 
-def check_candle(condition, candles):
+    def update(self, leverage, close_0, balance):
+        self.balance = balance
+
+        leverage_0 = self.leverage
+        order_leverage = leverage - self.leverage
+        self.leverage = leverage
+        self.order_price = close_0
+
+        if order_leverage > 0:
+            #self.order_size = order_leverage * (self.balance + self.pnl) / self.order_price
+            self.order_size = order_leverage * self.balance / self.order_price
+            self.position_price += (self.order_price - self.position_price) * (
+                    self.order_size / (self.position_size + self.order_size))
+
+        elif order_leverage <= 0 and leverage_0 != 0:
+            self.order_size = order_leverage * self.position_size / leverage_0
+        else:
+            self.order_size = 0
+
+        #self.balance += self.rpl
+
+        if self.order_size < 0 and self.position_size != 0:
+            self.rpl = self.pnl * (-self.order_size / self.position_size)
+            self.balance_0 = self.balance
+        else:
+            self.rpl = 0
+
+        self.position_size += self.order_size
+
+
+        return self.balance, self.leverage, self.order_size, self.order_price, self.position_size, self.position_price, \
+               self.close, self.pnl, self.rpl
+
+
+def update_position(launch, stream, block, candles, position, pos):
     candle = candles[0]
-    if condition['side'] == 'buy' and candles[1]['price'] >= candles[2]['price']:
-        return True
-    elif condition['side'] == 'sell' and candles[1]['price'] < candles[2]['price']:
-        return True
 
-def check_compare(launch, condition, position):
-    fields = condition['fields'].split(' ')
-    if fields[0] == 'pnl_1' and fields[1] == '<' and fields[2] == '0':
-        if position.pnl < 0:
-            return True
-    elif fields[0] == 'pnl_total' and fields[1] == '>' and fields[2] == '0':
-        if launch['pnl_total'] > 0:
-            return True
+    for action in block['actions']:
+        local_stream = stream
+        if 'stream' in action:
+            for s in range(len(launch['streams'])):
+                if launch['streams'][s]['id'] == str(action['stream']):
+                    local_stream = launch['streams'][s]
 
-def check_trailing(condition, candles):
-    pass
-
-def check_reject(condition, candles):
-    pass
-
-def check_reverse(condition, candles):
-    print("check_reverse")
-    amount = int(condition['amount'])
-    if len(candles) < amount + 1:
-        return False
-    for a in range(1):
-        if candles[a]['price'] > candles[a + 1]['price']:
-            return False
-    for a in range(1, amount):
-        if candles[a]['price'] < candles[a + 1]['price']:
-            return False
-
-    print("Good")
-    return True
+        local_stream['order'] = get_params(local_stream, block, action, candles, position, pos)
+        stream['order']['block_id'] = local_stream['order']['block_id']
+        pos.db_insert_position(local_stream, candle, local_stream['order'])
 
 
-
-
-
-
-
-#------------old------------------
-
-
-"""
-def check_trailing(condition, block, candle, order, launch):
-    direction = order['direction']
-
-    back_percent = float(condition['back_percent'])
-
-    result = False
-
-    trailing = order['trailings'].setdefault(str(block['number']), {})
-
-    trailing.setdefault('price', 0)
-    trailing.setdefault('max_price', 0)
-    trailing.setdefault('min_price', 0)
-
-    if condition.get("type_trailing") == "one_candle":
-        start = launch['cur_candle']['open']
+def get_leverage(action, parametrs):
+    leverage_0 = decimal.Decimal(parametrs['leverage'])
+    if 'leverage_up' in action:
+        leverage = leverage_0 + action['leverage_up']
+    elif 'leverage_down' in action:
+        down = decimal.Decimal(action['leverage_down'].strip('%'))
+        leverage = leverage_0 * (1 - down / 100)
     else:
-        start = order['open_price_position']
+        leverage = leverage_0
 
-    price_change = True
-    if direction == 'long' and (candle['price'] > trailing['max_price'] or trailing['max_price'] == 0):
-        trailing['price'] = candle['price'] - (candle['price'] - start) * back_percent / 100
-        trailing['max_price'] = candle['price']
-    elif direction == 'short' and (candle['price'] < trailing['min_price'] or trailing['min_price'] == 0):
-        trailing['price'] = candle['price'] + (start - candle['price']) * back_percent / 100
-        trailing['min_price'] = candle['price']
-    else:
-        price_change = False
+    if 'leverage_max' in action:
+        if action['leverage_max'] < leverage:
+            leverage = action['leverage_max']
+    return leverage
 
-    if price_change:
-        print("trailing_price(change)=" + str(trailing['price']) + ", time = " + str(candle['time']) + ", price=" + str(
-            candle['price']) + ", open_price=" + str(order['open_price_position']))
+def get_balance(action, parametrs):
+    balance = parametrs['balance']
+    if 'balance' in action:
+        up = decimal.Decimal(action['balance'].strip('%'))
+        balance = decimal.Decimal(parametrs['balance']) * up / 100
 
-    if trailing['price'] != 0:
-        if direction == 'long' and candle['price'] <= trailing['price']:
-            result = trailing['price']
-        elif direction == 'short' and candle['price'] >= trailing['price']:
-            result = trailing['price']
-
-    if result != False:
-        print("trailing_price(finish)=" + str(result) + ", time = " + str(candle['time']) + ", price=" + str(
-            candle['price']))
-
-    return result
+    return balance
 
 
-
-
-
-def check_reject(condition, block, candle, order, prev_candle, prev_prev_candle, launch):
-    if prev_candle == {}:
-        return False
-
-    side = condition["side"]
-    name = condition["name"] + "-" + condition["side"]
-    candle_count = condition["candle"]
-
-    if prev_candle.get(name) == None:
-        return False
-
-    reject = order['reject'].setdefault(name + '_' + str(block['number']), {})
-    if reject == {}:
-        result_side = prev_candle['close'] == prev_candle.get(name)
-        if result_side == True:
-            reject['side'] = side
-            reject['candle_count'] = candle_count
-            reject['cur_time_frame'] = cur_time_frame['start']
-            log_condition(candle['time'], "reject(start)")
-        return False
-
-    if reject['cur_time_frame'] == cur_time_frame['start']:
-        return False
-
-    next_result_side = ((side == 'high' and prev_candle['open'] > prev_candle['close'])
-                        or (side == 'low' and prev_candle['open'] < prev_candle['close']))
-
-    if next_result_side == False:
-        reject.clear()
-        return False
-
-    reject['candle_count'] = reject['candle_count'] - 1
-    reject['cur_time_frame'] = cur_time_frame['start']
-
-    result = reject['candle_count'] == 0
-    if result:
-        log_condition(candle['time'], "reject(finish)")
-
-    return result
-
-
-def check_percent(condition, block, candle, order, prev_candle, prev_prev_candle, launch):
-    print("check_percent")
-    if prev_candle == {}:
-        return False
-
-    condition.setdefault('offset_1', -1)
-    condition.setdefault('offset_2', -1)
-
-    if condition['offset_2'] == -2 and prev_prev_candle == None:
-        return False
-
-    if condition.get('value') == None:
-        return False
-
-    if condition['offset_1'] == -1:
-        source_candle_1 = prev_candle
-    elif condition['offset_1'] == -2:
-        source_candle_1 = prev_prev_candle
-    elif condition['offset_1'] == -3:
-        if prev_prev_candle == {}:
-            return False
-        else:
-
-            res = connector.get_candles(launch)[0]
-            if res == False:
-                return False
-            else:
-                source_candle_1 = res
-    else:
-        return False
-
-    if condition['offset_2'] == -1:
-        source_candle_2 = prev_candle
-    elif condition['offset_2'] == -2:
-        source_candle_2 = prev_prev_candle
-    elif condition['offset_2'] == -3:
-        if prev_prev_candle == {}:
-            return False
-        else:
-
-            res = connector.get_candles(launch)[0]
-            if res == False:
-                return False
-            else:
-                source_candle_2 = res
-    else:
-        return False
-
-    param_1 = source_candle_1.get(condition['param_1'])
-    if param_1 == None:
-        return False
-    param_1 = float(param_1)
-
-
-    param_2 = source_candle_2.get(condition['param_2'])
-    if param_2 == None:
-        return False
-    param_2 = float(param_2)
-
-    operator = condition['value'].split(' ')[0]
-    percent = float(condition['value'].split(' ')[1])
-
-    percent_fact = ((param_1 - param_2) / param_1) * 100
-
-    result = False
-
-    if operator == '>=':
-        if percent_fact >= percent:
-            result = True
-    elif operator == '<=':
-        if percent_fact <= percent:
-            result = True
-    elif operator == '<':
-        if percent_fact < percent:
-            result = True
-    elif operator == '>':
-        if percent_fact > percent:
-            result = True
-    elif operator == '=':
-        if percent_fact == percent:
-            result = True
-    elif operator == '':
-        result = True
-    else:
-        result = False
-
-    if result == True:
-        log_condition(candle['time'], "check_percent: " + str(condition))
-
-    return result
-
-
-def check_reverse(condition, block, candle, order, launch):
-    print("check_reverse")
-    candles = connector.get_candles(launch)
+def get_params(stream, block, action, candles, position, pos):
+    candle = candles[0]
     print(f"{candles=}")
-    print(f"{condition=}")
-    amount = int(condition['amount'])
-    #compare = reverse['compare'].split(' ')
-    if len(candles) < amount + 1:
-        return False
-    for a in range(1):
-        #print(f"{candles[a]['price']=} {candles[a + 1]['price']=}")
-        if candles[a]['price'] > candles[a + 1]['price']:
-            return False
-    for a in range(1, amount):
-        #print(f"{candles[a]['price']=} {candles[a + 1]['price']=}")
-        if candles[a]['price'] < candles[a + 1]['price']:
-            return False
+    parametrs = pos.get_last_order(stream)
+    #direction = stream['activation_blocks'][0]['actions'][0]['direction']
+    direction = action['direction']
+    #print(f"{direction=}")
+    #print(f"{parametrs=}")
+
+    if not position[stream['id']].start:
+        parametrs['balance'] = stream['order']['balance']
+        parametrs['leverage'] = float(0)
+        parametrs['order_price'] = float(0)
+        parametrs['order_size'] = float(0)
+        parametrs['position_price'] = float(0)
+        parametrs['position_size'] = float(0)
+        parametrs['last'] = False
+        position[stream['id']].first_start(parametrs['balance'], parametrs['leverage'], parametrs['order_price'],
+                                           parametrs['order_size'], parametrs['position_price'],
+                                           parametrs['position_size'], candles[1]['price'])
+
+    leverage = get_leverage(action, parametrs)
+    if not leverage:
+        position[stream['id']].start = False
+
+    #print(f"{leverage=}")
+    balance = get_balance(action, parametrs)
+
+    params = position[stream['id']].update(float(leverage), float(candles[1]['price']), float(balance))
+    position[stream['id']].update_pnl(float(candles[0]['price']), direction)
+
+    params_name = ('balance', 'leverage', 'order_size', 'order_price', 'position_size', 'position_price', 'price',
+                   'pnl', 'rpl')
+    params_dict = dict(zip(params_name, params))
+
+    for k in params_dict:
+        parametrs[k] = params_dict[k]
+    parametrs['last'] = True
+    parametrs['direction'] = direction
+    parametrs['order_type'] = action['order_type']
+    parametrs['block_id'] = block['id']
+    print(f"{stream['id']} {parametrs=}")
+
+    return parametrs
 
 
-    print("Good")
-    return True"""
+
+
+
+
+
+
 
