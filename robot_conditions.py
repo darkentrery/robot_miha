@@ -1,6 +1,6 @@
 
 # проверка срабатывания одного из условий
-def check_condition(condition, candles, position):
+def check_condition(launch, condition, candles, position):
     # проверяем каждый тип с помощбю функций из модуля robot_conditions
     if condition['type'] == 'candle':
         if check_candle(condition, candles):
@@ -19,7 +19,7 @@ def check_condition(condition, candles, position):
             return True
 
     elif condition['type'] == 'compare':
-        if check_compare(condition, position):
+        if check_compare(launch, condition, position):
             return True
 
 
@@ -34,10 +34,13 @@ def check_candle(condition, candles):
     elif condition['side'] == 'sell' and candles[1]['price'] < candles[2]['price']:
         return True
 
-def check_compare(condition, position):
+def check_compare(launch, condition, position):
     fields = condition['fields'].split(' ')
-    if fields[0] == 'pnl_1' and fields[1] == '<=' and fields[2] == '0':
-        if position.pnl <= 0:
+    if fields[0] == 'pnl_1' and fields[1] == '<' and fields[2] == '0':
+        if position.pnl < 0:
+            return True
+    elif fields[0] == 'pnl_total' and fields[1] == '>' and fields[2] == '0':
+        if launch['pnl_total'] > 0:
             return True
 
 def check_trailing(condition, candles):
@@ -49,13 +52,13 @@ def check_reject(condition, candles):
 def check_reverse(condition, candles):
     print("check_reverse")
     amount = int(condition['amount'])
-    if len(candles) < amount + 1:
+    if len(candles) < amount + 2:
         return False
-    for a in range(1):
-        if candles[a]['price'] > candles[a + 1]['price']:
+    for a in range(1, 2):
+        if candles[a]['price'] >= candles[a + 1]['price']:
             return False
-    for a in range(1, amount):
-        if candles[a]['price'] < candles[a + 1]['price']:
+    for a in range(2, amount + 2):
+        if candles[a]['price'] <= candles[a + 1]['price']:
             return False
 
     print("Good")
