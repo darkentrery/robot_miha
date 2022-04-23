@@ -127,7 +127,10 @@ def init_algo(launch, price, algo, pos):
         #if launch['mode'] == 'robot':
         if launch['mode'] != 'robot':
             # очистка таблицы позиций
-            pos.clear_table_positions(stream)
+            pass
+
+    for stream in range(1, 3):
+        pos.clear_table_positions(stream)
 
 #---------------------------functions for every ticks------------------------
 
