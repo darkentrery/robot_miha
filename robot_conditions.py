@@ -1,4 +1,3 @@
-
 # проверка срабатывания одного из условий
 def check_condition(launch, condition, candles, position):
     # проверяем каждый тип с помощбю функций из модуля robot_conditions
@@ -52,7 +51,7 @@ def check_reject(condition, candles):
 def check_reverse(condition, candles):
     print("check_reverse")
     amount = int(condition['amount'])
-    if len(candles) < amount + 2:
+    if len(candles) < amount + 3:
         return False
     for a in range(1, 2):
         if candles[a]['price'] >= candles[a + 1]['price']:
