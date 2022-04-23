@@ -151,7 +151,7 @@ def check_block(launch, stream, candles, position, pos):
         for num in range(numbers):
             for condition in block['conditions']:
                 if 'number' in condition:
-                    if check_condition(condition, candles):
+                    if check_condition(condition, candles, position[stream['id']]):
                         bool_numbers[num] = True
                     else:
                         bool_numbers[num] = False
@@ -168,7 +168,7 @@ def check_block(launch, stream, candles, position, pos):
         for block in activation_blocks:
             for condition in block['conditions']:
                 if not ('number' in condition):
-                    if check_condition(condition, candles):
+                    if check_condition(condition, candles, position[stream['id']]):
                         bool_numbers[number] = True
                     else:
                         bool_numbers[number] = False
