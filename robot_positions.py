@@ -11,7 +11,8 @@ class Position():
     def first_start(self, balance, leverage, order_size, order_price, position_size, position_price, close):
 
         if 'balance' in self.__dir__():
-            self.balance += self.rpl
+            #self.balance += self.rpl
+            pass
         else:
             self.balance = float(balance)
 
@@ -35,9 +36,8 @@ class Position():
 
 
 
-
-
     def update(self, leverage, close_0):
+
         leverage_0 = self.leverage
         order_leverage = leverage - self.leverage
         self.leverage = leverage
@@ -54,10 +54,11 @@ class Position():
         else:
             self.order_size = 0
 
-        self.balance += self.rpl
+        #self.balance += self.rpl
 
         if self.order_size < 0 and self.position_size != 0:
             self.rpl = self.pnl * (-self.order_size / self.position_size)
+            self.balance_0 = self.balance
         else:
             self.rpl = 0
 
@@ -78,15 +79,9 @@ def update_position(launch, stream, block, candles, position, pos):
                 if launch['streams'][s]['id'] == str(action['stream']):
                     local_stream = launch['streams'][s]
 
-        #stream['order'] = get_params(local_stream, block, action, candles, position, pos)
         local_stream['order'] = get_params(local_stream, block, action, candles, position, pos)
         stream['order']['block_id'] = local_stream['order']['block_id']
-        #local_stream['execute'] = True
-        #local_stream['execute_id'] = launch['last_id']
         pos.db_insert_position(local_stream, candle, local_stream['order'])
-
-    #stream['order'] = get_params(stream, block, candles, position, pos)
-    #pos.db_insert_position(stream, candle, stream['order'])
 
 
 def get_leverage(action, parametrs):
