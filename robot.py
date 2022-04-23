@@ -48,6 +48,7 @@ def init_launch(launch, config, summary):
     algorithm_prefix = 'algo_'
     config.get_0_config(launch, data)
 
+    launch['pnl_total'] = 0
     launch['rpl_total_percent'] = 0
     launch['rpl_total'] = 0
 
@@ -151,7 +152,7 @@ def check_block(launch, stream, candles, position, pos):
         for num in range(numbers):
             for condition in block['conditions']:
                 if 'number' in condition:
-                    if check_condition(condition, candles, position[stream['id']]):
+                    if check_condition(launch, condition, candles, position[stream['id']]):
                         bool_numbers[num] = True
                     else:
                         bool_numbers[num] = False
@@ -168,7 +169,7 @@ def check_block(launch, stream, candles, position, pos):
         for block in activation_blocks:
             for condition in block['conditions']:
                 if not ('number' in condition):
-                    if check_condition(condition, candles, position[stream['id']]):
+                    if check_condition(launch, condition, candles, position[stream['id']]):
                         bool_numbers[number] = True
                     else:
                         bool_numbers[number] = False
@@ -190,9 +191,10 @@ def set_parametrs(launch, candles, price, position):
     set_query = ""
     total = {'pnl_total': 0, 'rpl_total': 0, 'rpl_total_percent': 0}
     balance = 100 #!!!!!
-
+    launch['pnl_total'] = 0
     for stream in launch['streams']:
         if position[stream['id']].start:
+            launch['pnl_total'] += position[stream['id']].pnl
             total['pnl_total'] += position[stream['id']].pnl
             set_query += f"pnl_{stream['id']}={str(position[stream['id']].pnl)}, "
         else:
@@ -252,7 +254,6 @@ def main_loop(launch, robot_is_stoped):
 
             if len(candles) > 2:
                 check_block(launch, stream, candles, position, pos)
-                print(f"!{stream['order']=}")
                 if 'direction' in stream['order']:
                     position[stream['id']].update_pnl(float(candles[0]['price']), stream['order']['direction'])
 
