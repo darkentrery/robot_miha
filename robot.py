@@ -51,6 +51,7 @@ def init_launch(launch, config, summary):
     launch['rpl_total_percent'] = 0
     launch['rpl_total'] = 0
 
+
     for stream in launch['streams']:
         stream['algorithm'] = algorithm_prefix + str(stream['algorithm_num'])
         stream['order'] = get_null_order(None, launch, summary)
@@ -80,7 +81,11 @@ def convert_algorithm_data(algorithm_data):
 # получение списка активных блоков
 def get_activation_blocks(action_block, blocks):
     if not action_block:
-        activation_blocks = blocks
+        #activation_blocks = blocks
+        activation_blocks = []
+        for block in blocks:
+            if '0' in block['activations']:
+                activation_blocks.append(block)
     else:
         activation_blocks = []
         for block in blocks:
@@ -112,6 +117,7 @@ def init_algo(launch, price, algo, pos):
         stream['was_open'] = False
         stream['action_block'] = None
         stream['activation_blocks'] = get_activation_blocks(stream['action_block'], stream['blocks'])
+        print(f"{stream['activation_blocks']=}")
         if len(stream['activation_blocks']) == 0:
             raise Exception('There is no first block in startegy')
 
@@ -139,9 +145,6 @@ def check_block(launch, stream, candles, position, pos):
     numbers = 3
     activation_blocks = stream['activation_blocks']
     bool_numbers = [False for _ in range(numbers)]
-    #if (not ('execute_id' in stream)) or stream['execute_id'] != launch['last_id']:
-        #stream['execute'] = False
-
 
     # вначале проверяем условия по намберам
     for block in activation_blocks:
@@ -186,37 +189,26 @@ def set_parametrs(launch, candles, price, position):
 
     set_query = ""
     total = {'pnl_total': 0, 'rpl_total': 0, 'rpl_total_percent': 0}
-    balance = 0 #!!!!!
-    for stream in launch['streams']:
-        balance += float(stream['order']['balance'])
-        balance = 200
+    balance = 100 #!!!!!
+
     for stream in launch['streams']:
         if position[stream['id']].start:
-        #if stream['execute']:
-            #total['pnl_total'] += stream['order']['pnl']
             total['pnl_total'] += position[stream['id']].pnl
-            #total['rpl_total'] += stream['order']['rpl']
-            total['rpl_total'] += position[stream['id']].rpl
-            total['rpl_total_percent'] += 100 * position[stream['id']].rpl / balance
             set_query += f"pnl_{stream['id']}={str(position[stream['id']].pnl)}, "
         else:
             set_query += f"pnl_{stream['id']}={str(0)}, "
 
-
-
-
-
-
     for stream in launch['streams']:
         if 'pnl' in position[stream['id']].__dir__() and 'rpl' in position[stream['id']].__dir__():
-            if not position[stream['id']].start:
-                launch['rpl_total'] += position[stream['id']].rpl
-                launch['rpl_total_percent'] += 100 * position[stream['id']].rpl / balance
+            launch['rpl_total'] += position[stream['id']].rpl
+            launch['rpl_total_percent'] += 100 * position[stream['id']].rpl / balance
+            position[stream['id']].rpl = 0
+
     total['rpl_total'] += launch['rpl_total']
     total['rpl_total_percent'] += launch['rpl_total_percent']
-    print(f"{total['rpl_total']=} {launch['rpl_total']=} {total['rpl_total_percent']=} {launch['rpl_total_percent']=}")
 
     price.set_pnl(set_query, total, candles)
+
 
 
 @logger.catch
@@ -260,8 +252,9 @@ def main_loop(launch, robot_is_stoped):
 
             if len(candles) > 2:
                 check_block(launch, stream, candles, position, pos)
-
-                position[stream['id']].update_pnl(float(candles[0]['price']), stream['order']['direction'])
+                print(f"!{stream['order']=}")
+                if 'direction' in stream['order']:
+                    position[stream['id']].update_pnl(float(candles[0]['price']), stream['order']['direction'])
 
         # запись значений в таблицу прайс
         set_parametrs(launch, candles, price, position)
