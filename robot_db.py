@@ -56,9 +56,9 @@ class Price(Connector):
             if row is None:
                 return False
 
-            launch['last_id'] = row[0]
-            print(launch['last_id'])
-            query = f"SELECT id, time, close FROM {self.price_table} WHERE id <= {launch['last_id']} order by id desc LIMIT 20"
+            launch['cur_id'] = row[0]
+            print(launch['cur_id'])
+            query = f"SELECT id, time, close FROM {self.price_table} WHERE id <= {launch['cur_id']} order by id desc LIMIT 20"
             self.cursor.execute(query)
             rows = self.cursor.fetchall()
             candles = [{'id': r[0], 'time': r[1], 'price': r[2]} for r in rows]
@@ -81,6 +81,17 @@ class Price(Connector):
         query = f"UPDATE {self.price_table} SET {set_query} pnl_total = NULL, rpl_total = NULL, rpl_total_percent = NULL"
         self.cursor.execute(query)
         self.cnx.commit()
+
+    def get_for_compare(self, launch):
+        query = f"SHOW COLUMNS FROM tester_miha.{self.price_table}"
+        self.cursor.execute(query)
+        row = self.cursor.fetchall()
+        columns = [r[0] for r in row]
+        query = f"SELECT * FROM {self.price_table} WHERE id = {launch['last_id']} order by id desc LIMIT 1"
+        self.cursor.execute(query)
+        row = self.cursor.fetchone()
+        fields = dict(zip(columns, row))
+        return fields
 
 
 # класс для работы с таблицей конфигурации
@@ -115,7 +126,7 @@ class Config(Connector):
         query = f"SELECT tick_status, percent_level, last_tick_time, algo_1, algo_2 FROM {self.config_table} WHERE symbol = '{self.symbol}'"
         self.cursor.execute(query)
         rows = self.cursor.fetchone()
-        launch['percent_level'] = str(rows[1])
+        #launch['percent_level'] = str(rows[1])
         algorithm = [str(a) for a in rows[3:5]]
         launch['streams'] = [{'algorithm_num': a, 'id': str(id + 1)} for id, a in enumerate(algorithm) if a != '0' and a != '']
 
@@ -188,6 +199,9 @@ class Config(Connector):
         except Exception as e:
             print(e)
 
+
+
+
 # класс для работы с таблицами алгоритма
 class Algo(Connector):
 
@@ -224,7 +238,8 @@ class Positions(Connector):
 
     def clear_table_positions(self, stream):
         try:
-            query = f"TRUNCATE TABLE {self.symbol}_pos_{stream['id']}"
+            #query = f"TRUNCATE TABLE {self.symbol}_pos_{stream['id']}"
+            query = f"TRUNCATE TABLE {self.symbol}_pos_{stream}"
             self.cursor.execute(query)
             print("trunc")
         except Exception as e:
