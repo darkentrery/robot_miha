@@ -70,7 +70,7 @@ class Position():
                self.close, self.pnl, self.rpl
 
 
-def update_position(launch, stream, block, candles, position, pos):
+def update_position(launch, stream, block, candles, position):
     candle = candles[0]
 
     for action in block['actions']:
@@ -80,9 +80,9 @@ def update_position(launch, stream, block, candles, position, pos):
                 if launch['streams'][s]['id'] == str(action['stream']):
                     local_stream = launch['streams'][s]
 
-        local_stream['order'] = get_params(local_stream, block, action, candles, position, pos)
+        local_stream['order'] = get_params(launch, local_stream, block, action, candles, position)
         stream['order']['block_id'] = local_stream['order']['block_id']
-        pos.db_insert_position(local_stream, candle, local_stream['order'])
+        launch['pos'].db_insert_position(local_stream, candle, local_stream['order'])
 
 
 def get_leverage(action, parametrs):
@@ -109,23 +109,25 @@ def get_balance(action, parametrs):
     return balance
 
 
-def get_params(stream, block, action, candles, position, pos):
+def get_params(launch, stream, block, action, candles, position):
     candle = candles[0]
     print(f"{candles=}")
-    parametrs = pos.get_last_order(stream)
+    parametrs = launch['pos'].get_last_order(stream)
     #direction = stream['activation_blocks'][0]['actions'][0]['direction']
     direction = action['direction']
     #print(f"{direction=}")
     #print(f"{parametrs=}")
 
     if not position[stream['id']].start:
+        sum = launch['summary'].get_summary()
         parametrs['balance'] = stream['order']['balance']
+        parametrs['balance'] = sum[1] / sum[2]
         parametrs['leverage'] = float(0)
         parametrs['order_price'] = float(0)
         parametrs['order_size'] = float(0)
         parametrs['position_price'] = float(0)
         parametrs['position_size'] = float(0)
-        parametrs['last'] = False
+        #parametrs['last'] = False
         position[stream['id']].first_start(parametrs['balance'], parametrs['leverage'], parametrs['order_price'],
                                            parametrs['order_size'], parametrs['position_price'],
                                            parametrs['position_size'], candles[1]['price'])
