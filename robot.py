@@ -70,6 +70,7 @@ class Bot():
     def convert_algorithm_data(self, algorithm_data):
         blocks = []
         for i, a in enumerate(algorithm_data):
+            print(f"{a[2]=}")
             h = ast.literal_eval(a[2])
             activations = a[3].split(',')
             blocks.append({'id': str(a[0]), 'name': a[1], 'conditions': h['conditions'], 'actions': h['actions'],
