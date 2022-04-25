@@ -100,11 +100,13 @@ def get_leverage(action, parametrs):
             leverage = action['leverage_max']
     return leverage
 
-def get_balance(action, parametrs):
+def get_balance(launch, action, parametrs):
     balance = parametrs['balance']
     if 'balance' in action:
         up = decimal.Decimal(action['balance'].strip('%'))
-        balance = decimal.Decimal(parametrs['balance']) * up / 100
+        sum = launch['summary'].get_summary()
+        balance = sum[1] / sum[2]
+        balance = decimal.Decimal(balance) * up / 100
 
     return balance
 
@@ -120,7 +122,7 @@ def get_params(launch, stream, block, action, candles, position):
 
     if not position[stream['id']].start:
         sum = launch['summary'].get_summary()
-        parametrs['balance'] = stream['order']['balance']
+        #parametrs['balance'] = stream['order']['balance']
         parametrs['balance'] = sum[1] / sum[2]
         parametrs['leverage'] = float(0)
         parametrs['order_price'] = float(0)
@@ -137,7 +139,7 @@ def get_params(launch, stream, block, action, candles, position):
         position[stream['id']].start = False
 
     #print(f"{leverage=}")
-    balance = get_balance(action, parametrs)
+    balance = get_balance(launch, action, parametrs)
 
     params = position[stream['id']].update(float(leverage), float(candles[1]['price']), float(balance))
     position[stream['id']].update_pnl(float(candles[0]['price']), direction)
