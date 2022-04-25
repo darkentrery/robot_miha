@@ -39,10 +39,16 @@ def check_compare(launch, condition):
     field = condition['fields'].split(' ')
     fields = launch['price'].get_for_compare(launch)
     if field[1] == '=': field[1] = '=='
+    field_1 = field[0]
+    field_2 = field[2]
 
     if field[0] in fields:
-        if eval(f"{fields[field[0]]} {field[1]} {field[2]}"):
-            return True
+        field_1 = fields[field[0]]
+    if field[2] in fields:
+        field_2 = fields[field[2]]
+
+    if eval(f"{field_1} {field[1]} {field_2}"):
+        return True
 
 
 def check_trailing(condition, candles):
@@ -56,13 +62,22 @@ def check_reverse(condition, candles):
     amount = int(condition['amount'])
     if len(candles) < amount + 3:
         return False
-    #if condition[]
-    for a in range(1, 2):
-        if candles[a]['price'] >= candles[a + 1]['price']:
-            return False
-    for a in range(2, amount + 2):
-        if candles[a]['price'] <= candles[a + 1]['price']:
-            return False
+    if 'side' in condition and condition['side'] == 'up':
+        for a in range(1, 2):
+            if candles[a]['price'] >= candles[a + 1]['price']:
+                return False
+        for a in range(2, amount + 2):
+            if candles[a]['price'] <= candles[a + 1]['price']:
+                return False
+
+    if 'side' in condition and condition['side'] == 'down':
+        for a in range(1, 2):
+            if candles[a]['price'] <= candles[a + 1]['price']:
+                return False
+        for a in range(2, amount + 2):
+            if candles[a]['price'] >= candles[a + 1]['price']:
+                return False
+
 
     print("Good")
     return True
