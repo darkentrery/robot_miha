@@ -47,8 +47,11 @@ def check_compare(launch, condition):
     if field[2] in fields:
         field_2 = fields[field[2]]
 
-    if eval(f"{field_1} {field[1]} {field_2}"):
-        return True
+    try:
+        if eval(f"{field_1} {field[1]} {field_2}"):
+            return True
+    except:
+        return False
 
 
 def check_trailing(condition, candles):
