@@ -4,6 +4,7 @@ import json
 import datetime
 
 
+
 # родительский класс, дает всем остальным объект курсора и коннектора
 class Connector:
     def __init__(self, launch):
@@ -83,7 +84,7 @@ class Price(Connector):
         self.cnx.commit()
 
     def get_for_compare(self, launch):
-        query = f"SHOW COLUMNS FROM tester_miha.{self.price_table}"
+        query = f"SHOW COLUMNS FROM {self.database}.{self.price_table}"
         self.cursor.execute(query)
         row = self.cursor.fetchall()
         columns = [r[0] for r in row]
@@ -122,12 +123,12 @@ class Config(Connector):
             return obj.isoformat()
     pass
 
-    def get_0_config(self, launch, data):
-        query = f"SELECT tick_status, percent_level, last_tick_time, algo_1, algo_2 FROM {self.config_table} WHERE symbol = '{self.symbol}'"
+    def get_0_config(self, launch):
+        query = f"SELECT tick_status, last_tick_time, algo_1, algo_2 FROM {self.config_table} WHERE symbol = '{self.symbol}'"
+        print(f"{query=}")
         self.cursor.execute(query)
         rows = self.cursor.fetchone()
-        #launch['percent_level'] = str(rows[1])
-        algorithm = [str(a) for a in rows[3:5]]
+        algorithm = [str(a) for a in rows[2:4]]
         launch['streams'] = [{'algorithm_num': a, 'id': str(id + 1)} for id, a in enumerate(algorithm) if a != '0' and a != '']
 
         print(f"{launch=}")
