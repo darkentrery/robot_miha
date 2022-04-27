@@ -129,7 +129,7 @@ class Bot():
         for block in activation_blocks:
             for num in range(numbers):
                 for condition in block['conditions']:
-                    if 'number' in condition:
+                    if 'number' in condition and condition['number'] == num:
                         if check_condition(self.launch, condition, self.candles):
                             bool_numbers[num] = True
                         else:
