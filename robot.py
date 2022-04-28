@@ -2,6 +2,8 @@ import ast
 import decimal
 import time
 
+import loguru
+
 import robot_positions as positions
 from robot_conditions import check_condition
 
@@ -121,11 +123,81 @@ class Bot():
     # проверка условий в блоке
     def check_block(self, stream):
         print("check_block")
-        numbers = 3
+        numbers = 4
+        bool = False
         activation_blocks = stream['activation_blocks']
         bool_numbers = [False for _ in range(numbers)]
+        for block in activation_blocks:
+            # создание/обновление нулевого блока с наберами
+            if not ('numbers' in block):
+                block['numbers'] = {}
 
-        # вначале проверяем условия по намберам
+            for condition in block['conditions']:
+                if 'number' in condition:
+                    if condition['number'] in block['numbers'] and block['numbers'][condition['number']] is not None:
+                        block['numbers'][condition['number']] = 0
+                    elif not (condition['number'] in block['numbers']):
+                        block['numbers'][condition['number']] = 0
+
+                elif not ('number' in condition):
+                    if 1 in block['numbers'] and block['numbers'][1] is not None:
+                        block['numbers'][1] = 0
+                    elif not (1 in block['numbers']):
+                        block['numbers'][1] = 0
+
+            print(f"{block['numbers']=}")
+            # записываем количество каждого набера в блоке
+            for condition in block['conditions']:
+                if 'number' in condition and block['numbers'][condition['number']] is not None:
+                    block['numbers'][condition['number']] += 1
+                elif not ('number' in condition) and block['numbers'][1] is not None:
+                    block['numbers'][1] += 1
+
+
+            block['numbers'] = dict(sorted(block['numbers'].items(), key=lambda x: x[0]))
+
+        # проверка срабатывания всех условий для намберов по порядку
+        for block in activation_blocks:
+            for number in block['numbers']:
+                if block['numbers'][number]:
+                    for condition in block['conditions']:
+                        print(f"{condition=}")
+                        if 'number' in condition and condition['number'] == number:
+                            print(f"!{number}")
+                            if check_condition(self.launch, condition, self.candles):
+                                block['numbers'][number] -= 1
+
+                        elif not ('number' in condition) and number == 1:
+                            print("!!")
+                            if check_condition(self.launch, condition, self.candles):
+                                block['numbers'][1] -= 1
+            print(f"{block['numbers']=}")
+            # проверка сработали ли все наберы в блоке
+            for number in block['numbers']:
+                if block['numbers'][number] == 0 and block['numbers'][number] is not None:
+                    block['numbers'][number] = None
+                    break
+                elif block['numbers'][number] is None:
+                    continue
+                else:
+                    break
+
+            for number in block['numbers']:
+                if block['numbers'][number] is None:
+                    bool = True
+                else:
+                    bool = False
+                    break
+
+            print(f"{block['numbers']=}")
+            if bool:
+                self.execute_action(stream, block)
+                return
+
+
+
+
+        """"# вначале проверяем условия по намберам
         for block in activation_blocks:
             for num in range(numbers):
                 for condition in block['conditions']:
@@ -153,7 +225,7 @@ class Bot():
                             break
                 if bool_numbers[number]:
                     self.execute_action(stream, block)
-                    return
+                    return"""
 
     # выполнение действия
     def execute_action(self, stream, block):
@@ -258,7 +330,7 @@ class Tester(Bot):
             return False
         return True
 
-
+@logger.catch
 def trade_loop(launch, robot_is_stoped):
     tester = Tester(launch)
     tester.init_launch()
