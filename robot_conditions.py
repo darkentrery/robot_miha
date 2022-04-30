@@ -29,11 +29,15 @@ def check_condition(launch, condition, candles):
 
 
 def check_candle(condition, candles):
-    candle = candles[0]
+    if len(candles) < 3:
+        return False
+
     if condition['side'] == 'buy' and candles[1]['price'] >= candles[2]['price']:
         return True
     elif condition['side'] == 'sell' and candles[1]['price'] < candles[2]['price']:
         return True
+    else:
+        return False
 
 def check_compare(launch, condition):
     fields = condition['fields'].split(' ')

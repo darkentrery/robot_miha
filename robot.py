@@ -116,7 +116,7 @@ class Bot():
 
     def check_conditions_in_streams(self):
         for stream in self.launch['streams']:
-            if len(self.candles) > 2 and stream['algorithm']:
+            if len(self.candles) > 1 and stream['algorithm']:
                 self.check_block(stream)
             if 'direction' in stream['order']:
                 self.position[stream['id']].update_pnl(float(self.candles[0]['price']), stream['order']['direction'])
@@ -316,8 +316,8 @@ def trade_loop(launch, robot_is_stoped):
         # запись значений в таблицу прайс
         tester.set_parametrs()
 
-
-trade_loop(launch, robot_is_stoped)
+if __name__ == '__main__':
+    trade_loop(launch, robot_is_stoped)
 
 
 
