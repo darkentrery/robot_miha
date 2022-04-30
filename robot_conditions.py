@@ -36,19 +36,25 @@ def check_candle(condition, candles):
         return True
 
 def check_compare(launch, condition):
-    field = condition['fields'].split(' ')
-    fields = launch['price'].get_for_compare(launch)
-    if field[1] == '=': field[1] = '=='
-    field_1 = field[0]
-    field_2 = field[2]
+    fields = condition['fields'].split(' ')
+    for i, field in enumerate(fields):
+        if field == '=':
+            fields[i] = '=='
+    print(f"{fields=}")
+    fields_price = launch['price'].get_for_compare(launch)
+    print(f"{fields_price=}")
 
-    if field[0] in fields:
-        field_1 = fields[field[0]]
-    if field[2] in fields:
-        field_2 = fields[field[2]]
+    for i, field in enumerate(fields):
+        if field in fields_price:
+            fields[i] = str(fields_price[field])
+        elif 'stream' in condition and field in launch['position'][str(condition['stream'])].__dir__():
+            fields[i] = str(getattr(launch['position'][str(condition['stream'])], field))
 
+    compare = ' '.join(fields)
+
+    print(compare)
     try:
-        if eval(f"{field_1} {field[1]} {field_2}"):
+        if eval(compare):
             return True
     except:
         return False

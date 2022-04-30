@@ -80,7 +80,7 @@ def update_position(launch, stream, block, candles, position):
                 if launch['streams'][s]['id'] == str(action['stream']):
                     local_stream = launch['streams'][s]
 
-        local_stream['order'] = get_params(launch, local_stream, block, action, candles, position)
+        local_stream['order'] = get_params(launch, local_stream, block, action, candles, position, stream['id'])
         stream['order']['block_id'] = local_stream['order']['block_id']
         launch['pos'].db_insert_position(local_stream, candle, local_stream['order'])
 
@@ -111,7 +111,7 @@ def get_balance(launch, action, parametrs):
     return balance
 
 
-def get_params(launch, stream, block, action, candles, position):
+def get_params(launch, stream, block, action, candles, position, id):
     candle = candles[0]
     print(f"{candles=}")
     parametrs = launch['pos'].get_last_order(stream)
@@ -153,7 +153,7 @@ def get_params(launch, stream, block, action, candles, position):
     parametrs['last'] = True
     parametrs['direction'] = direction
     parametrs['order_type'] = action['order_type']
-    parametrs['block_id'] = block['id']
+    parametrs['block_id'] = f"{id}_{block['id']}"
     print(f"{stream['id']} {parametrs=}")
 
     return parametrs

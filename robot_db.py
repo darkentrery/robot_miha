@@ -38,8 +38,7 @@ class Price(Connector):
 
     def set_pnl(self, set_query, total, candles):
         print("set_pnl")
-        data = (total['pnl_total'], total['rpl_total'], total['rpl_total_percent'])
-        query = f"UPDATE {self.price_table} SET {set_query} pnl_total={data[0]},rpl_total={data[1]}, rpl_total_percent={data[2]} WHERE id={candles[0]['id']}"
+        query = f"UPDATE {self.price_table} SET {set_query} rpl_total={total['rpl_total']}, rpl_total_percent={total['rpl_total_percent']} WHERE id={candles[0]['id']}"
         self.cursor.execute(query)
         self.cnx.commit()
 
@@ -74,12 +73,11 @@ class Price(Connector):
         print("delete_pnl_from_price")
         if launch['mode'] != 'tester':
             return
-        set_query = ""
-        for stream in launch['streams']:
-            set_query = set_query + f"pnl_{stream['id']} = NULL,"
-        set_query ="pnl_1 = NULL, pnl_2 = NULL,"
+        set_query = [f"pnl_{stream['id']} = NUll" for stream in launch['streams']]
+        set_query = ", ".join(set_query)
 
-        query = f"UPDATE {self.price_table} SET {set_query} pnl_total = NULL, rpl_total = NULL, rpl_total_percent = NULL"
+
+        query = f"UPDATE {self.price_table} SET {set_query}, rpl_total = NULL, rpl_total_percent = NULL"
         self.cursor.execute(query)
         self.cnx.commit()
 
@@ -123,13 +121,18 @@ class Config(Connector):
             return obj.isoformat()
     pass
 
-    def get_0_config(self, launch):
-        query = f"SELECT tick_status, last_tick_time, algo_1, algo_2 FROM {self.config_table} WHERE symbol = '{self.symbol}'"
-        print(f"{query=}")
+    def get_streams(self, launch):
+        query = f"SHOW COLUMNS FROM {self.database}.{self.config_table}"
+        self.cursor.execute(query)
+        row = self.cursor.fetchall()
+        columns = [r[0] for r in row if 'stream' in r[0]]
+        streams = ', '.join(columns)
+        query = f"SELECT {streams} FROM {self.config_table} WHERE symbol = '{self.symbol}'"
         self.cursor.execute(query)
         rows = self.cursor.fetchone()
-        algorithm = [str(a) for a in rows[2:4]]
-        launch['streams'] = [{'algorithm_num': a, 'id': str(id + 1)} for id, a in enumerate(algorithm) if a != '0' and a != '']
+        algorithms = dict(zip(columns, rows))
+        print(f"{streams=}")
+        launch['streams'] = [{'algorithm': algorithms[a], 'id': str(a.split('_')[1])} for a in algorithms]
 
         print(f"{launch=}")
 
@@ -209,7 +212,7 @@ class Algo(Connector):
     def db_get_algorithm(self, stream):
         print("db_get_algorithm")
         try:
-            query = f"SELECT * FROM {self.symbol}_{stream['algorithm']}"
+            query = f"SELECT * FROM {stream['algorithm']}"
             self.cursor.execute(query)
 
         except Exception as e:

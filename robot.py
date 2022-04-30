@@ -2,15 +2,13 @@ import ast
 import decimal
 import time
 
-import loguru
-
 import robot_positions as positions
 from robot_conditions import check_condition
 
 from sys import argv
 from robot_db import Config, Positions, Algo, Price, Summary
 from loguru import logger
-from robot_constants import launch, data, SYMBOL, robot_is_stoped
+from robot_constants import launch, data, robot_is_stoped
 from robot_trading import get_robot_status
 
 
@@ -35,38 +33,41 @@ class Bot():
         self.launch['algo'] = self.algo
         self.launch['summary'] = self.summary
 
-        self.position = {'1': positions.Position(), '2': positions.Position()}
+        self.position = {}
 
     # наполнение массива launch
     def init_launch(self):
-        algorithm_prefix = 'algo_'
-        self.config.get_0_config(self.launch)
+        self.config.get_streams(self.launch)
 
-        self.launch['pnl_total'] = 0
         self.launch['rpl_total_percent'] = 0
         self.launch['rpl_total'] = 0
 
         for stream in self.launch['streams']:
-            stream['algorithm'] = algorithm_prefix + str(stream['algorithm_num'])
             stream['order'] = self.get_null_order(None)
+
+            self.position[stream['id']] = positions.Position()
 
             host = 'http://' + data[f"host_exchange_{stream['id']}"]
             stream['url'] = stream.setdefault('url', host)
 
-            algorithm_data = self.algo.db_get_algorithm(stream)
-            blocks = self.convert_algorithm_data(algorithm_data)
-            stream['blocks'] = blocks
+            if stream['algorithm']:
+                algorithm_data = self.algo.db_get_algorithm(stream)
+                blocks = self.convert_algorithm_data(algorithm_data)
+                stream['blocks'] = blocks
+                stream['action_block'] = None
+                stream['activation_blocks'] = self.get_activation_blocks(stream['action_block'], stream['blocks'])
+                print(f"{stream['activation_blocks']=}")
 
             stream['was_close'] = False
             stream['was_open'] = False
-            stream['action_block'] = None
-            stream['activation_blocks'] = self.get_activation_blocks(stream['action_block'], stream['blocks'])
-            print(f"{stream['activation_blocks']=}")
-            if len(stream['activation_blocks']) == 0:
-                raise Exception('There is no first block in startegy')
+
+            #if len(stream['activation_blocks']) == 0:
+            #    raise Exception('There is no first block in startegy')
 
             # проверка наличия и создание таблицы позиций
             self.pos.create_table_positions(stream)
+
+        self.launch['position'] = self.position
 
     # преобразование полученных данных из таблиц алгоритмов в форму словаря
     def convert_algorithm_data(self, algorithm_data):
@@ -115,18 +116,16 @@ class Bot():
 
     def check_conditions_in_streams(self):
         for stream in self.launch['streams']:
-            if len(self.candles) > 2:
+            if len(self.candles) > 2 and stream['algorithm']:
                 self.check_block(stream)
-                if 'direction' in stream['order']:
-                    self.position[stream['id']].update_pnl(float(self.candles[0]['price']), stream['order']['direction'])
+            if 'direction' in stream['order']:
+                self.position[stream['id']].update_pnl(float(self.candles[0]['price']), stream['order']['direction'])
 
     # проверка условий в блоке
     def check_block(self, stream):
         print("check_block")
-        numbers = 4
         bool = False
         activation_blocks = stream['activation_blocks']
-        bool_numbers = [False for _ in range(numbers)]
         for block in activation_blocks:
             # создание/обновление нулевого блока с наберами
             if not ('numbers' in block):
@@ -172,6 +171,7 @@ class Bot():
                             if check_condition(self.launch, condition, self.candles):
                                 block['numbers'][1] -= 1
             print(f"{block['numbers']=}")
+
             # проверка сработали ли все наберы в блоке
             for number in block['numbers']:
                 if block['numbers'][number] == 0 and block['numbers'][number] is not None:
@@ -192,40 +192,8 @@ class Bot():
             print(f"{block['numbers']=}")
             if bool:
                 self.execute_action(stream, block)
+                block['numbers'] = {}
                 return
-
-
-
-
-        """"# вначале проверяем условия по намберам
-        for block in activation_blocks:
-            for num in range(numbers):
-                for condition in block['conditions']:
-                    if 'number' in condition and condition['number'] == num:
-                        if check_condition(self.launch, condition, self.candles):
-                            bool_numbers[num] = True
-                        else:
-                            bool_numbers[num] = False
-                            break
-
-                if bool_numbers[num]:
-                    self.execute_action(stream, block)
-                    return
-
-        # если намберы не сработали проверяем остльные условия
-        number = 1  # если намбер явно не объявлен, то принимается равным 1
-        if not (True in bool_numbers):
-            for block in activation_blocks:
-                for condition in block['conditions']:
-                    if not ('number' in condition):
-                        if check_condition(self.launch, condition, self.candles):
-                            bool_numbers[number] = True
-                        else:
-                            bool_numbers[number] = False
-                            break
-                if bool_numbers[number]:
-                    self.execute_action(stream, block)
-                    return"""
 
     # выполнение действия
     def execute_action(self, stream, block):
@@ -241,13 +209,10 @@ class Bot():
             return
 
         set_query = ""
-        total = {'pnl_total': 0, 'rpl_total': 0, 'rpl_total_percent': 0}
+        total = {'rpl_total': 0, 'rpl_total_percent': 0}
         balance = 100  # !!!!!
-        self.launch['pnl_total'] = 0
         for stream in self.launch['streams']:
             if self.position[stream['id']].start:
-                launch['pnl_total'] += self.position[stream['id']].pnl
-                total['pnl_total'] += self.position[stream['id']].pnl
                 set_query += f"pnl_{stream['id']}={str(self.position[stream['id']].pnl)}, "
             else:
                 set_query += f"pnl_{stream['id']}={str(0)}, "
