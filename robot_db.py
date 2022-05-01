@@ -125,7 +125,7 @@ class Config(Connector):
         query = f"SHOW COLUMNS FROM {self.database}.{self.config_table}"
         self.cursor.execute(query)
         row = self.cursor.fetchall()
-        columns = [r[0] for r in row if 'stream' in r[0]]
+        columns = [r[0] for r in row if 'stream' in r[0][:7]]
         streams = ', '.join(columns)
         query = f"SELECT {streams} FROM {self.config_table} WHERE symbol = '{self.symbol}'"
         self.cursor.execute(query)
@@ -242,8 +242,7 @@ class Positions(Connector):
 
     def clear_table_positions(self, stream):
         try:
-            #query = f"TRUNCATE TABLE {self.symbol}_pos_{stream['id']}"
-            query = f"TRUNCATE TABLE {self.symbol}_pos_{stream}"
+            query = f"TRUNCATE TABLE {self.symbol}_pos_{stream['id']}"
             self.cursor.execute(query)
             print("trunc")
         except Exception as e:

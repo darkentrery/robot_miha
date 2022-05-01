@@ -41,11 +41,14 @@ class Bot():
 
         self.launch['rpl_total_percent'] = 0
         self.launch['rpl_total'] = 0
+        null_order = self.get_null_order(None)
 
         for stream in self.launch['streams']:
-            stream['order'] = self.get_null_order(None)
+            stream['order'] = null_order
 
             self.position[stream['id']] = positions.Position()
+
+            print(f"host_exchange_{stream['id']}")
 
             host = 'http://' + data[f"host_exchange_{stream['id']}"]
             stream['url'] = stream.setdefault('url', host)
@@ -73,7 +76,6 @@ class Bot():
     def convert_algorithm_data(self, algorithm_data):
         blocks = []
         for i, a in enumerate(algorithm_data):
-            print(f"{a[2]=}")
             h = ast.literal_eval(a[2])
             activations = a[3].split(',')
             blocks.append({'id': str(a[0]), 'name': a[1], 'conditions': h['conditions'], 'actions': h['actions'],
@@ -160,14 +162,11 @@ class Bot():
             for number in block['numbers']:
                 if block['numbers'][number]:
                     for condition in block['conditions']:
-                        print(f"{condition=}")
                         if 'number' in condition and condition['number'] == number:
-                            print(f"!{number}")
                             if check_condition(self.launch, condition, self.candles):
                                 block['numbers'][number] -= 1
 
                         elif not ('number' in condition) and number == 1:
-                            print("!!")
                             if check_condition(self.launch, condition, self.candles):
                                 block['numbers'][1] -= 1
             print(f"{block['numbers']=}")
@@ -272,6 +271,7 @@ class Tester(Bot):
 
     # создание параметров для записи в прайс до момента срабатывания позиций
     def get_null_order(self, order):
+        print("get_null_order")
         sum = self.summary.get_summary()
         if not order:
             order = {}
@@ -286,7 +286,7 @@ class Tester(Bot):
         self.price.delete_pnl_from_price(self.launch)
 
         # очистка таблицы позиций
-        for stream in range(1, 3):
+        for stream in self.launch['streams']:
             self.pos.clear_table_positions(stream)
 
     def check_exist_candles(self):

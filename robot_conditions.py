@@ -46,13 +46,16 @@ def check_compare(launch, condition):
             fields[i] = '=='
     print(f"{fields=}")
     fields_price = launch['price'].get_for_compare(launch)
-    print(f"{fields_price=}")
 
     for i, field in enumerate(fields):
         if field in fields_price:
             fields[i] = str(fields_price[field])
         elif 'stream' in condition and field in launch['position'][str(condition['stream'])].__dir__():
             fields[i] = str(getattr(launch['position'][str(condition['stream'])], field))
+        #else:
+        #    print(f"Поле {field} не найдено в таблицах price и pos. Неверно задано условие")
+        #    return False
+
 
     compare = ' '.join(fields)
 
@@ -61,6 +64,7 @@ def check_compare(launch, condition):
         if eval(compare):
             return True
     except:
+        print(f"Условие {compare} неверно задано.")
         return False
 
 
