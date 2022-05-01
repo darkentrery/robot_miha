@@ -1,14 +1,14 @@
 import ast
 
 # проверка срабатывания одного из условий
-def check_condition(launch, condition, candles):
+def check_condition(launch, condition, candles, stream):
     # проверяем каждый тип с помощбю функций из модуля robot_conditions
     if condition['type'] == 'candle':
         if check_candle(condition, candles):
             return True
 
     elif condition['type'] == 'trailing':
-        if check_trailing(condition, candles):
+        if check_trailing(stream, condition, candles):
             return True
 
     elif condition['type'] == 'reject':
@@ -44,7 +44,7 @@ def check_compare(launch, condition):
     for i, field in enumerate(fields):
         if field == '=':
             fields[i] = '=='
-    print(f"{fields=}")
+    #print(f"{fields=}")
     fields_price = launch['price'].get_for_compare(launch)
 
     for i, field in enumerate(fields):
@@ -52,14 +52,10 @@ def check_compare(launch, condition):
             fields[i] = str(fields_price[field])
         elif 'stream' in condition and field in launch['position'][str(condition['stream'])].__dir__():
             fields[i] = str(getattr(launch['position'][str(condition['stream'])], field))
-        #else:
-        #    print(f"Поле {field} не найдено в таблицах price и pos. Неверно задано условие")
-        #    return False
-
 
     compare = ' '.join(fields)
 
-    print(compare)
+    #print(compare)
     try:
         if eval(compare):
             return True
@@ -68,8 +64,37 @@ def check_compare(launch, condition):
         return False
 
 
-def check_trailing(condition, candles):
-    pass
+def check_trailing(stream, condition, candles):
+    if 'position_price' in stream['order']:
+        close = stream['order']['position_price']
+    else:
+        return False
+
+    for c in range(-stream['order']['candle_id'], -len(candles), -1):
+        if condition['side'] == 'up':
+            activation_price = close * (1 + condition['activation_percent']/100)
+            print(f"{activation_price=} {float(candles[c]['price'])}")
+            if float(candles[c]['price']) >= activation_price:
+                max_price = float(candles[c]['price'])
+                print(f"{max_price=}")
+                back_price = close + (max_price - close) * (1 - condition['back_percent']/100)
+                print(f"{back_price=}")
+                for p in range(c - 1, -len(candles), -1):
+                    print(f"{p} {float(candles[p]['price'])}")
+                    if float(candles[p]['price']) <= back_price:
+                        return True
+
+        elif condition['side'] == 'down':
+            activation_price = close * (1 - condition['activation_percent']/100)
+            if float(candles[c]['price']) <= activation_price:
+                max_price = float(candles[c]['price'])
+                back_price = close + (max_price - close) * (1 - condition['back_percent']/100)
+                for p in range(-(c + 1), -len(candles), -1):
+                    if float(candles[p]['price']) >= back_price:
+                        return True
+
+    return False
+
 
 def check_reject(condition, candles):
     pass
@@ -94,7 +119,6 @@ def check_reverse(condition, candles):
         for a in range(2, amount + 2):
             if candles[a]['price'] >= candles[a + 1]['price']:
                 return False
-
 
     print("Good")
     return True

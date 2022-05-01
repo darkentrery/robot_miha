@@ -154,6 +154,7 @@ def get_params(launch, stream, block, action, candles, position, id):
     parametrs['direction'] = direction
     parametrs['order_type'] = action['order_type']
     parametrs['block_id'] = f"{id}_{block['id']}"
+    parametrs['candle_id'] = candles[0]['id']
     print(f"{stream['id']} {parametrs=}")
 
     return parametrs

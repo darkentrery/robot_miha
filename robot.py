@@ -146,7 +146,6 @@ class Bot():
                     elif not (1 in block['numbers']):
                         block['numbers'][1] = 0
 
-            print(f"{block['numbers']=}")
             # записываем количество каждого набера в блоке
             for condition in block['conditions']:
                 if 'number' in condition and block['numbers'][condition['number']] is not None:
@@ -163,13 +162,12 @@ class Bot():
                 if block['numbers'][number]:
                     for condition in block['conditions']:
                         if 'number' in condition and condition['number'] == number:
-                            if check_condition(self.launch, condition, self.candles):
+                            if check_condition(self.launch, condition, self.candles, stream):
                                 block['numbers'][number] -= 1
 
                         elif not ('number' in condition) and number == 1:
-                            if check_condition(self.launch, condition, self.candles):
+                            if check_condition(self.launch, condition, self.candles, stream):
                                 block['numbers'][1] -= 1
-            print(f"{block['numbers']=}")
 
             # проверка сработали ли все наберы в блоке
             for number in block['numbers']:
@@ -188,7 +186,6 @@ class Bot():
                     bool = False
                     break
 
-            print(f"{block['numbers']=}")
             if bool:
                 self.execute_action(stream, block)
                 block['numbers'] = {}
