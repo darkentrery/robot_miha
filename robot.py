@@ -120,8 +120,8 @@ class Bot():
         for stream in self.launch['streams']:
             if len(self.candles) > 1 and stream['algorithm']:
                 self.check_block(stream)
-            if 'direction' in stream['order']:
-                self.position[stream['id']].update_pnl(float(self.candles[0]['price']), stream['order']['direction'])
+            #if 'direction' in stream['order']:
+            #    self.position[stream['id']].update_pnl(float(self.candles[0]['price']), stream['order']['direction'])
 
     # проверка условий в блоке
     def check_block(self, stream):
@@ -208,6 +208,9 @@ class Bot():
         total = {'rpl_total': 0, 'rpl_total_percent': 0}
         balance = 100  # !!!!!
         for stream in self.launch['streams']:
+            if 'direction' in stream['order']:
+                self.position[stream['id']].update_pnl(float(self.candles[0]['price']), stream['order']['direction'])
+
             if self.position[stream['id']].start:
                 set_query += f"pnl_{stream['id']}={str(self.position[stream['id']].pnl)}, "
             else:

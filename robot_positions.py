@@ -67,7 +67,7 @@ class Position():
 
 
         return self.balance, self.leverage, self.order_size, self.order_price, self.position_size, self.position_price, \
-               self.close, self.pnl, self.rpl
+               self.close, self.rpl
 
 
 def update_position(launch, stream, block, candles, position):
@@ -138,19 +138,17 @@ def get_params(launch, stream, block, action, candles, position, id):
     if not leverage:
         position[stream['id']].start = False
 
-    #print(f"{leverage=}")
     balance = get_balance(launch, action, parametrs)
 
     params = position[stream['id']].update(float(leverage), float(candles[1]['price']), float(balance))
     position[stream['id']].update_pnl(float(candles[0]['price']), direction)
 
-    params_name = ('balance', 'leverage', 'order_size', 'order_price', 'position_size', 'position_price', 'price',
-                   'pnl', 'rpl')
+    params_name = ('balance', 'leverage', 'order_size', 'order_price', 'position_size', 'position_price', 'price', 'rpl')
     params_dict = dict(zip(params_name, params))
 
     for k in params_dict:
         parametrs[k] = params_dict[k]
-    parametrs['last'] = True
+    parametrs['pnl'] = position[stream['id']].pnl
     parametrs['direction'] = direction
     parametrs['order_type'] = action['order_type']
     parametrs['block_id'] = f"{id}_{block['id']}"
