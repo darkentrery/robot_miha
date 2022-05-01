@@ -20,7 +20,7 @@ def check_condition(launch, condition, candles, stream):
             return True
 
     elif condition['type'] == 'compare':
-        if check_compare(launch, condition):
+        if check_compare(launch, condition, stream):
             return True
 
 
@@ -39,7 +39,7 @@ def check_candle(condition, candles):
     else:
         return False
 
-def check_compare(launch, condition):
+def check_compare(launch, condition, stream):
     fields = condition['fields'].split(' ')
     for i, field in enumerate(fields):
         if field == '=':
@@ -52,10 +52,12 @@ def check_compare(launch, condition):
             fields[i] = str(fields_price[field])
         elif 'stream' in condition and field in launch['position'][str(condition['stream'])].__dir__():
             fields[i] = str(getattr(launch['position'][str(condition['stream'])], field))
+        elif not ('stream' in condition) and field in launch['position'][str(stream['id'])].__dir__():
+            fields[i] = str(getattr(launch['position'][str(stream['id'])], field))
 
     compare = ' '.join(fields)
 
-    #print(compare)
+    print(f"{compare=}")
     try:
         if eval(compare):
             return True
