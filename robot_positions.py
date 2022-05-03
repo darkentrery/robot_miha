@@ -122,9 +122,9 @@ def get_params(launch, stream, block, action, candles, position, id):
 
     if not position[stream['id']].start:
         sum = launch['summary'].get_summary()
-        #parametrs['balance'] = stream['order']['balance']
-        parametrs['balance'] = sum[1] / sum[2]
-        parametrs['leverage'] = float(0)
+        parametrs['balance'] = stream['order']['balance']
+        #parametrs['balance'] = sum[1] / sum[2]
+        parametrs['leverage'] = stream['order']['leverage']
         parametrs['order_price'] = float(0)
         parametrs['order_size'] = float(0)
         parametrs['position_price'] = float(0)
@@ -137,7 +137,7 @@ def get_params(launch, stream, block, action, candles, position, id):
     leverage = get_leverage(action, parametrs)
     if not leverage:
         position[stream['id']].start = False
-
+    print(f"{leverage=}")
     balance = get_balance(launch, action, parametrs)
 
     params = position[stream['id']].update(float(leverage), float(candles[1]['price']), float(balance))

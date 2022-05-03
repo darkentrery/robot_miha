@@ -119,7 +119,7 @@ class Config(Connector):
 
         if isinstance(obj, datetime.datetime):
             return obj.isoformat()
-    pass
+
 
     def get_streams(self, launch):
         query = f"SHOW COLUMNS FROM {self.database}.{self.config_table}"
@@ -157,48 +157,29 @@ class Config(Connector):
         except Exception as e:
             print(e)
 
-    def db_get_state(self, launch):
+    def db_get_state(self):
         print("db_get_state")
-        if launch['mode'] != 'robot':
-            return False
-
-        #launch_data = json.dumps(launch, default=json_serial)
-        stat_data = json.dumps(stat, default=self.json_serial)
-
         try:
             query = f"SELECT trading_state FROM {self.config_table} WHERE symbol = '{self.symbol}'"
             self.cursor.execute(query)
-            for stat_data in self.cursor:
-
-                if stat_data == "null" or stat_data == None:
-
-                    return False
-
+            result = self.cursor.fetchone()
+            result = json.loads(result[0])
             #launch_data = json.loads(launch_data, object_pairs_hook=load_with_datetime)
-            stat_data = json.loads(stat_data, object_pairs_hook=self.load_with_datetime)
-            #launch.update(launch_data)
-            stat.update(stat_data)
-
-            return True
+            #stat_data = json.loads(stat_data, object_pairs_hook=self.load_with_datetime)
+            return result
 
         except Exception as e:
             print(e)
             return False
 
-    def db_save_state(self, launch, stat):
-        #launch_data = json.dumps(launch, default=json_serial)
-        stat_data = json.dumps(stat, default=self.json_serial)
-
-        if launch['mode'] != 'robot':
-            return False
-
-        stat_data = json.dumps(stat, default=self.json_serial)
+    def save_state(self, state):
+        state_data = json.dumps(state, default=self.json_serial, ensure_ascii=False)
+        print(f"{state_data=}")
 
         try:
-            #update_query = (f"UPDATE {self.config_table} SET launch = %s, stat = %s where symbol = '{self.symbol}'")
-            query = f"UPDATE {self.config_table} SET trading_state = %s WHERE symbol = '{self.symbol}'"
-            #data = (launch_data, stat_data)
-            self.cursor.execute(query, stat_data)
+            query = f"UPDATE {self.config_table} SET trading_state = '{state_data}' WHERE symbol = '{self.symbol}'"
+            self.cursor.execute(query)
+            self.cnx.commit()
 
         except Exception as e:
             print(e)

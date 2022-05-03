@@ -48,8 +48,6 @@ class Bot():
 
             self.position[stream['id']] = positions.Position()
 
-            print(f"host_exchange_{stream['id']}")
-
             host = 'http://' + data[f"host_exchange_{stream['id']}"]
             stream['url'] = stream.setdefault('url', host)
 
@@ -59,18 +57,18 @@ class Bot():
                 stream['blocks'] = blocks
                 stream['action_block'] = None
                 stream['activation_blocks'] = self.get_activation_blocks(stream['action_block'], stream['blocks'])
-                print(f"{stream['activation_blocks']=}")
 
             stream['was_close'] = False
             stream['was_open'] = False
-
-            #if len(stream['activation_blocks']) == 0:
-            #    raise Exception('There is no first block in startegy')
 
             # проверка наличия и создание таблицы позиций
             self.pos.create_table_positions(stream)
 
         self.launch['position'] = self.position
+
+        result = self.config.db_get_state()
+        print(f"{result=}")
+
 
     # преобразование полученных данных из таблиц алгоритмов в форму словаря
     def convert_algorithm_data(self, algorithm_data):
@@ -120,8 +118,6 @@ class Bot():
         for stream in self.launch['streams']:
             if len(self.candles) > 1 and stream['algorithm']:
                 self.check_block(stream)
-            #if 'direction' in stream['order']:
-            #    self.position[stream['id']].update_pnl(float(self.candles[0]['price']), stream['order']['direction'])
 
     # проверка условий в блоке
     def check_block(self, stream):
@@ -169,7 +165,7 @@ class Bot():
                             if check_condition(self.launch, condition, self.candles, stream):
                                 block['numbers'][1] -= 1
 
-            # проверка сработали ли все наберы в блоке
+            # проверка сработали ли все наберы в блоке, сработавший намбер равен 0, после чего присваивается None для следующих итераций
             for number in block['numbers']:
                 if block['numbers'][number] == 0 and block['numbers'][number] is not None:
                     block['numbers'][number] = None
@@ -179,6 +175,7 @@ class Bot():
                 else:
                     break
 
+            # если все намберы None то значит сработали
             for number in block['numbers']:
                 if block['numbers'][number] is None:
                     bool = True
@@ -231,6 +228,24 @@ class Bot():
 
         print(f"{self.launch=}")
 
+    # запись состояния в таблицу 0_config
+    def save_trading_state(self):
+        total_balance = 0
+        total_leverage = 0
+        state = {}
+
+        for stream in self.launch['streams']:
+            total_balance += float(stream['order']['balance'])
+            total_leverage += stream['order']['leverage']
+
+        state['streams'] = self.launch['streams']
+        state['total_balance'] = total_balance
+        state['total_leverage'] = total_leverage
+        state['last_id'] = self.launch['last_id']
+        print(f"{state=}")
+        #state = {'actions': [{'direction': 'long', 'leverage_up': 1}], 'conditions': [{'type': 'compare', 'fields': 'ai_1-h > ai_2-h'}]}
+        self.config.save_state(state)
+
 
     # создание параметров для записи в прайс до момента срабатывания позиций
     def get_null_order(self, order):
@@ -275,9 +290,10 @@ class Tester(Bot):
         sum = self.summary.get_summary()
         if not order:
             order = {}
-            order['balance'] = sum[1] / sum[2]
+            order['balance'] = float(sum[1] / sum[2])
             order['pnl'] = 0
             order['rpl'] = 0
+            order['leverage'] = 0
         return order
 
     def prepare_tables(self):
@@ -297,24 +313,31 @@ class Tester(Bot):
 
 @logger.catch
 def trade_loop(launch, robot_is_stoped):
-    tester = Tester(launch)
-    tester.init_launch()
-    tester.prepare_tables()
+    if launch['mode'] == 'tester':
+        mode = Tester(launch)
+    elif launch['mode'] == 'robot':
+        mode = Robot(launch)
+
+    mode.init_launch()
+    mode.prepare_tables()
     # цикл по прайс
     while True:
-        if tester.get_robot_status(robot_is_stoped):
+        if mode.get_robot_status(robot_is_stoped):
             continue
 
-        tester.get_candles_from_table()
+        mode.get_candles_from_table()
 
-        if not tester.check_exist_candles():
+        if not mode.check_exist_candles():
             break
 
         # проверка условий и исполнение действий для каждого потока
-        tester.check_conditions_in_streams()
+        mode.check_conditions_in_streams()
 
         # запись значений в таблицу прайс
-        tester.set_parametrs()
+        mode.set_parametrs()
+
+        mode.save_trading_state()
+
 
 if __name__ == '__main__':
     trade_loop(launch, robot_is_stoped)
