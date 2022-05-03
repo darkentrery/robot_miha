@@ -43,7 +43,12 @@ class Bot():
         self.launch['rpl_total'] = 0
         null_order = self.get_null_order(None)
 
-        for stream in self.launch['streams']:
+        result = self.config.db_get_state()
+        print(f"{result=}")
+        #if result:
+        #   self.launch['last_id'] = result['last_id']
+
+        for i, stream in enumerate(self.launch['streams']):
             stream['order'] = null_order
 
             self.position[stream['id']] = positions.Position()
@@ -53,10 +58,16 @@ class Bot():
 
             if stream['algorithm']:
                 algorithm_data = self.algo.db_get_algorithm(stream)
-                blocks = self.convert_algorithm_data(algorithm_data)
-                stream['blocks'] = blocks
-                stream['action_block'] = None
-                stream['activation_blocks'] = self.get_activation_blocks(stream['action_block'], stream['blocks'])
+                stream['blocks'] = self.convert_algorithm_data(algorithm_data)
+
+                """if result:
+                    stream['action_block'] = result['streams'][i]['action_block']
+                    if 'activation_blocks' in result['streams'][i]:
+                        stream['activation_blocks'] = result['streams'][i]['activation_blocks']"""
+
+                if not ('action_block' in stream):
+                    stream['action_block'] = None
+                    stream['activation_blocks'] = self.get_activation_blocks(stream['action_block'], stream['blocks'])
 
             stream['was_close'] = False
             stream['was_open'] = False
@@ -66,8 +77,7 @@ class Bot():
 
         self.launch['position'] = self.position
 
-        result = self.config.db_get_state()
-        print(f"{result=}")
+
 
 
     # преобразование полученных данных из таблиц алгоритмов в форму словаря
@@ -131,25 +141,25 @@ class Bot():
 
             for condition in block['conditions']:
                 if 'number' in condition:
-                    if condition['number'] in block['numbers'] and block['numbers'][condition['number']] is not None:
-                        block['numbers'][condition['number']] = 0
-                    elif not (condition['number'] in block['numbers']):
-                        block['numbers'][condition['number']] = 0
+                    if str(condition['number']) in block['numbers'] and block['numbers'][str(condition['number'])] is not None:
+                        block['numbers'][str(condition['number'])] = 0
+                    elif not (str(condition['number']) in block['numbers']):
+                        block['numbers'][str(condition['number'])] = 0
 
                 elif not ('number' in condition):
-                    if 1 in block['numbers'] and block['numbers'][1] is not None:
-                        block['numbers'][1] = 0
-                    elif not (1 in block['numbers']):
-                        block['numbers'][1] = 0
+                    if '1' in block['numbers'] and block['numbers']['1'] is not None:
+                        block['numbers']['1'] = 0
+                    elif not ('1' in block['numbers']):
+                        block['numbers']['1'] = 0
 
             # записываем количество каждого набера в блоке
             for condition in block['conditions']:
-                if 'number' in condition and block['numbers'][condition['number']] is not None:
-                    block['numbers'][condition['number']] += 1
-                elif not ('number' in condition) and block['numbers'][1] is not None:
-                    block['numbers'][1] += 1
+                if 'number' in condition and block['numbers'][str(condition['number'])] is not None:
+                    block['numbers'][str(condition['number'])] += 1
+                elif not ('number' in condition) and block['numbers']['1'] is not None:
+                    block['numbers']['1'] += 1
 
-
+            print(f"{block['numbers']=}")
             block['numbers'] = dict(sorted(block['numbers'].items(), key=lambda x: x[0]))
 
         # проверка срабатывания всех условий для намберов по порядку
@@ -157,13 +167,13 @@ class Bot():
             for number in block['numbers']:
                 if block['numbers'][number]:
                     for condition in block['conditions']:
-                        if 'number' in condition and condition['number'] == number:
+                        if 'number' in condition and str(condition['number']) == number:
                             if check_condition(self.launch, condition, self.candles, stream):
                                 block['numbers'][number] -= 1
 
-                        elif not ('number' in condition) and number == 1:
+                        elif not ('number' in condition) and '1' == number:
                             if check_condition(self.launch, condition, self.candles, stream):
-                                block['numbers'][1] -= 1
+                                block['numbers']['1'] -= 1
 
             # проверка сработали ли все наберы в блоке, сработавший намбер равен 0, после чего присваивается None для следующих итераций
             for number in block['numbers']:
@@ -192,7 +202,8 @@ class Bot():
     def execute_action(self, stream, block):
         print("execute_action")
         positions.update_position(self.launch, stream, block, self.candles, self.position)
-        stream['activation_blocks'] = self.get_activation_blocks(block['id'], stream['blocks'])
+        stream['action_block'] = block['id']
+        stream['activation_blocks'] = self.get_activation_blocks(stream['action_block'], stream['blocks'])
         print(f"{stream['activation_blocks']=}")
 
     # запись параметров в таблицу прайс
@@ -234,16 +245,32 @@ class Bot():
         total_leverage = 0
         state = {}
 
+
         for stream in self.launch['streams']:
             total_balance += float(stream['order']['balance'])
             total_leverage += stream['order']['leverage']
+            stream_id = f"stream_{stream['id']}"
+            state[stream_id] = {}
+            #state[stream_id]['activation_blocks'] = []
 
-        state['streams'] = self.launch['streams']
+            if 'action_block' in stream:
+                state[stream_id]['activation_blocks'] = [{'id': s['id']} for s in stream['activation_blocks']]
+                for ii, act in enumerate(stream['activation_blocks']):
+                    print(f"{stream['activation_blocks'][ii]=}")
+                    if 'numbers' in act:
+                        for i, num in enumerate(stream['activation_blocks'][ii]['numbers']):
+                            if stream['activation_blocks'][ii]['numbers'][num] is None:
+                                state[stream_id]['activation_blocks'][ii]['conditions_number'] = num
+
+                state[stream_id]['action_block'] = stream['action_block']
+            else:
+                state[stream_id]['action_block'] = None
+
+
         state['total_balance'] = total_balance
         state['total_leverage'] = total_leverage
         state['last_id'] = self.launch['last_id']
         print(f"{state=}")
-        #state = {'actions': [{'direction': 'long', 'leverage_up': 1}], 'conditions': [{'type': 'compare', 'fields': 'ai_1-h > ai_2-h'}]}
         self.config.save_state(state)
 
 
@@ -337,6 +364,7 @@ def trade_loop(launch, robot_is_stoped):
         mode.set_parametrs()
 
         mode.save_trading_state()
+
 
 
 if __name__ == '__main__':
