@@ -213,8 +213,8 @@ class Positions(Connector):
             if not self.cursor.fetchone():
                 query = f"CREATE TABLE IF NOT EXISTS {self.symbol}_pos_{stream['id']} (id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, block_id VARCHAR (20) NOT NULL," \
                         f" side ENUM('long', 'short') NOT NULL, balance DECIMAL (30, 8) NOT NULL, leverage DECIMAL (30, 2) NOT NULL, order_time DATETIME NOT NULL," \
-                        f"order_size DECIMAL (30, 8) NOT NULL, order_price DECIMAL (30, 2) NOT NULL, position_size DECIMAL (30, 8) NOT NULL," \
-                        f" position_price DECIMAL (30, 2) NOT NULL, rpl DECIMAL (30, 8) NOT NULL, order_type ENUM('limit', 'market', 'limit_refresh') NOT NULL);"
+                        f"order_size DECIMAL (30, 8) NOT NULL, order_price DECIMAL (30, 4) NOT NULL, position_size DECIMAL (30, 8) NOT NULL," \
+                        f" position_price DECIMAL (30, 4) NOT NULL, rpl DECIMAL (30, 8) NOT NULL, order_type ENUM('limit', 'market', 'limit_refresh') NOT NULL);"
                 self.cursor.execute(query)
                 self.cnx.commit()
 
