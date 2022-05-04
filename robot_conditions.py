@@ -69,15 +69,30 @@ def check_compare(launch, condition, stream):
 def check_trailing(stream, condition, candles):
     if 'position_price' in stream['order']:
         close = stream['order']['position_price']
+        print(f"{stream['order']=}")
+        print(f"{candles=}")
     else:
         return False
 
-    for c in range(-stream['order']['candle_id'], -len(candles), -1):
+    # расчет id с которого нужно начать поиск
+    if stream['trailing_id'] is None:
+        candle_id = stream['order']['candle_id']
+    else:
+        candle_id = stream['trailing_id']
+
+    for i, candle in enumerate(candles):
+        if candle['id'] == candle_id:
+            id = i - len(candles)
+            break
+
+    print(f"{id=}")
+    for c in range(id, -len(candles), -1):
         if condition['side'] == 'up':
             activation_price = close * (1 + condition['activation_percent']/100)
             print(f"{activation_price=} {float(candles[c]['price'])}")
             if float(candles[c]['price']) >= activation_price:
                 max_price = float(candles[c]['price'])
+                stream['trailing_id'] = candles[c]['id']
                 print(f"{max_price=}")
                 back_price = close + (max_price - close) * (1 - condition['back_percent']/100)
                 print(f"{back_price=}")
@@ -88,8 +103,10 @@ def check_trailing(stream, condition, candles):
 
         elif condition['side'] == 'down':
             activation_price = close * (1 - condition['activation_percent']/100)
+            print(f"{activation_price=} {float(candles[c]['price'])}")
             if float(candles[c]['price']) <= activation_price:
                 max_price = float(candles[c]['price'])
+                stream['trailing_id'] = candles[c]['id']
                 back_price = close + (max_price - close) * (1 - condition['back_percent']/100)
                 for p in range(-(c + 1), -len(candles), -1):
                     if float(candles[p]['price']) >= back_price:

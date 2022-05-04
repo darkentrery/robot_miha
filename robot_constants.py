@@ -19,10 +19,10 @@ file_keys_path = f"{os.path.dirname(__file__)}\\{data_base_name}"
 
 print(f"{file_keys_path=}")
 
-SYMBOL = 'BTC'
+SYMBOL = 'twt'
 #SYMBOL = argv[1]
 #SYMBOL = SYMBOL.upper()
-MYSQL_TABLE_READ = SYMBOL + '_price_A'
+MYSQL_TABLE_READ = SYMBOL + '_price'
 MYSQL_TABLE_CONFIG = '0_config'
 MYSQL_TABLE_SUMMARY = '0_summary'
 TELEGRAM_METADATA = {"channel_id":"-1001541461039", "token":"1878579785:AAH0yC1onsi-5bVkAIygXEHG5PK18-UZisI"}

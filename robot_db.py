@@ -58,7 +58,7 @@ class Price(Connector):
 
             launch['cur_id'] = row[0]
             print(launch['cur_id'])
-            query = f"SELECT id, time, close FROM {self.price_table} WHERE id <= {launch['cur_id']} order by id desc LIMIT 20"
+            query = f"SELECT id, time, close FROM {self.price_table} WHERE id <= {launch['cur_id']} order by id desc LIMIT 30"
             self.cursor.execute(query)
             rows = self.cursor.fetchall()
             candles = [{'id': r[0], 'time': r[1], 'price': r[2]} for r in rows]

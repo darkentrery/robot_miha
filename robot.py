@@ -59,6 +59,7 @@ class Bot():
             if stream['algorithm']:
                 algorithm_data = self.algo.db_get_algorithm(stream)
                 stream['blocks'] = self.convert_algorithm_data(algorithm_data)
+                stream['trailing_id'] = None
 
                 """if result:
                     stream['action_block'] = result['streams'][i]['action_block']
@@ -255,12 +256,16 @@ class Bot():
 
             if 'action_block' in stream:
                 state[stream_id]['activation_blocks'] = [{'id': s['id']} for s in stream['activation_blocks']]
-                for ii, act in enumerate(stream['activation_blocks']):
-                    print(f"{stream['activation_blocks'][ii]=}")
+                for i, act in enumerate(stream['activation_blocks']):
+                    print(f"{stream['activation_blocks'][i]=}")
                     if 'numbers' in act:
-                        for i, num in enumerate(stream['activation_blocks'][ii]['numbers']):
-                            if stream['activation_blocks'][ii]['numbers'][num] is None:
-                                state[stream_id]['activation_blocks'][ii]['conditions_number'] = num
+                        for num in stream['activation_blocks'][i]['numbers']:
+                            if stream['activation_blocks'][i]['numbers'][num] is None:
+                                state[stream_id]['activation_blocks'][i]['conditions_number'] = num
+                            else:
+                                state[stream_id]['activation_blocks'][i]['conditions_number'] = None
+                    else:
+                        state[stream_id]['activation_blocks'][i]['conditions_number'] = None
 
                 state[stream_id]['action_block'] = stream['action_block']
             else:
