@@ -87,18 +87,23 @@ def check_trailing(stream, condition, candles):
 
     print(f"{id=}")
     for c in range(id, -len(candles), -1):
+        stream['trailing_id'] = candles[c]['id']
         if condition['side'] == 'up':
             activation_price = close * (1 + condition['activation_percent']/100)
             print(f"{activation_price=} {float(candles[c]['price'])}")
             if float(candles[c]['price']) >= activation_price:
                 max_price = float(candles[c]['price'])
-                stream['trailing_id'] = candles[c]['id']
+                if stream['max_price'] < max_price:
+                    stream['max_price'] = max_price
+
                 print(f"{max_price=}")
-                back_price = close + (max_price - close) * (1 - condition['back_percent']/100)
+                back_price = close + (stream['max_price'] - close) * (1 - condition['back_percent']/100)
                 print(f"{back_price=}")
                 for p in range(c - 1, -len(candles), -1):
                     print(f"{p} {float(candles[p]['price'])}")
                     if float(candles[p]['price']) <= back_price:
+                        stream['trailing_id'] = None
+                        stream['max_price'] = 0
                         return True
 
         elif condition['side'] == 'down':
@@ -106,10 +111,14 @@ def check_trailing(stream, condition, candles):
             print(f"{activation_price=} {float(candles[c]['price'])}")
             if float(candles[c]['price']) <= activation_price:
                 max_price = float(candles[c]['price'])
-                stream['trailing_id'] = candles[c]['id']
-                back_price = close + (max_price - close) * (1 - condition['back_percent']/100)
+                if stream['max_price'] < max_price:
+                    stream['max_price'] = max_price
+
+                back_price = close + (stream['max_price'] - close) * (1 - condition['back_percent']/100)
                 for p in range(-(c + 1), -len(candles), -1):
                     if float(candles[p]['price']) >= back_price:
+                        stream['trailing_id'] = None
+                        stream['max_price'] = 0
                         return True
 
     return False

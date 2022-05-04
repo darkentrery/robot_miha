@@ -58,7 +58,7 @@ class Price(Connector):
 
             launch['cur_id'] = row[0]
             print(launch['cur_id'])
-            query = f"SELECT id, time, close FROM {self.price_table} WHERE id <= {launch['cur_id']} order by id desc LIMIT 30"
+            query = f"SELECT id, time, close FROM {self.price_table} WHERE id <= {launch['cur_id']} order by id desc LIMIT 20"
             self.cursor.execute(query)
             rows = self.cursor.fetchall()
             candles = [{'id': r[0], 'time': r[1], 'price': r[2]} for r in rows]
@@ -174,8 +174,6 @@ class Config(Connector):
 
     def save_state(self, state):
         state_data = json.dumps(state, default=self.json_serial, ensure_ascii=False)
-        print(f"{state_data=}")
-
         try:
             query = f"UPDATE {self.config_table} SET trading_state = '{state_data}' WHERE symbol = '{self.symbol}'"
             self.cursor.execute(query)
