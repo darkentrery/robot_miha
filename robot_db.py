@@ -164,8 +164,6 @@ class Config(Connector):
             self.cursor.execute(query)
             result = self.cursor.fetchone()
             result = json.loads(result[0])
-            #launch_data = json.loads(launch_data, object_pairs_hook=load_with_datetime)
-            #stat_data = json.loads(stat_data, object_pairs_hook=self.load_with_datetime)
             return result
 
         except Exception as e:
@@ -181,7 +179,6 @@ class Config(Connector):
 
         except Exception as e:
             print(e)
-
 
 
 

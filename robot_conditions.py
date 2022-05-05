@@ -115,7 +115,7 @@ def check_trailing(stream, condition, candles):
                     stream['max_price'] = max_price
 
                 back_price = close + (stream['max_price'] - close) * (1 - condition['back_percent']/100)
-                for p in range(-(c + 1), -len(candles), -1):
+                for p in range(c - 1, -len(candles), -1):
                     if float(candles[p]['price']) >= back_price:
                         stream['trailing_id'] = None
                         stream['max_price'] = 0

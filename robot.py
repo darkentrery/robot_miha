@@ -43,14 +43,8 @@ class Bot():
         self.launch['rpl_total'] = 0
         null_order = self.get_null_order(None)
 
-        result = self.config.db_get_state()
-        print(f"{result=}")
-        #if result:
-        #   self.launch['last_id'] = result['last_id']
-
         for i, stream in enumerate(self.launch['streams']):
             stream['order'] = null_order
-
             self.position[stream['id']] = positions.Position()
 
             host = 'http://' + data[f"host_exchange_{stream['id']}"]
@@ -59,13 +53,9 @@ class Bot():
             if stream['algorithm']:
                 algorithm_data = self.algo.db_get_algorithm(stream)
                 stream['blocks'] = self.convert_algorithm_data(algorithm_data)
+
                 stream['trailing_id'] = None
                 stream['max_price'] = 0
-
-                """if result:
-                    stream['action_block'] = result['streams'][i]['action_block']
-                    if 'activation_blocks' in result['streams'][i]:
-                        stream['activation_blocks'] = result['streams'][i]['activation_blocks']"""
 
                 if not ('action_block' in stream):
                     stream['action_block'] = None
@@ -79,8 +69,31 @@ class Bot():
 
         self.launch['position'] = self.position
 
+    def get_state(self):
+        self.state = self.config.db_get_state()
+        if self.state:
+            self.launch['last_id'] = self.state['last_id']
+            for stream in self.launch['streams']:
+                id =f"stream_{stream['id']}"
+                stream['action_block'] = self.state[id]['action_block']
+                if stream['algorithm']:
+                    stream['activation_blocks'] = self.get_activation_blocks(stream['action_block'], stream['blocks'])
+                    self.set_default_numbers(stream)
 
+                if 'max_price' in self.state[id]:
+                    stream['max_price'] = self.state[id]['max_price']
+                if 'trailing_id' in self.state[id]:
+                    stream['trailing_id'] = self.state[id]['trailing_id']
 
+                if 'activation_blocks' in self.state[id]:
+                    for block in stream['activation_blocks']:
+                        for i in self.state[id]['activation_blocks']:
+                            if block['id'] == i['id'] and i['conditions_number'] is not None:
+                                for num in block['numbers']:
+                                    if int(num) <= int(i['conditions_number']):
+                                        block['numbers'][num] = None
+
+        print(f"load_{self.state=}")
 
     # преобразование полученных данных из таблиц алгоритмов в форму словаря
     def convert_algorithm_data(self, algorithm_data):
@@ -131,10 +144,7 @@ class Bot():
             if len(self.candles) > 1 and stream['algorithm']:
                 self.check_block(stream)
 
-    # проверка условий в блоке
-    def check_block(self, stream):
-        print("check_block")
-        bool = False
+    def set_default_numbers(self, stream):
         activation_blocks = stream['activation_blocks']
         for block in activation_blocks:
             # создание/обновление нулевого блока с наберами
@@ -143,7 +153,8 @@ class Bot():
 
             for condition in block['conditions']:
                 if 'number' in condition:
-                    if str(condition['number']) in block['numbers'] and block['numbers'][str(condition['number'])] is not None:
+                    if str(condition['number']) in block['numbers'] and block['numbers'][
+                        str(condition['number'])] is not None:
                         block['numbers'][str(condition['number'])] = 0
                     elif not (str(condition['number']) in block['numbers']):
                         block['numbers'][str(condition['number'])] = 0
@@ -163,6 +174,14 @@ class Bot():
 
             print(f"{block['numbers']=}")
             block['numbers'] = dict(sorted(block['numbers'].items(), key=lambda x: x[0]))
+
+
+    # проверка условий в блоке
+    def check_block(self, stream):
+        print("check_block")
+        bool = False
+        activation_blocks = stream['activation_blocks']
+        self.set_default_numbers(stream)
 
         # проверка срабатывания всех условий для намберов по порядку
         for block in activation_blocks:
@@ -247,18 +266,20 @@ class Bot():
         total_leverage = 0
         state = {}
 
-
         for stream in self.launch['streams']:
             total_balance += float(stream['order']['balance'])
             total_leverage += stream['order']['leverage']
             stream_id = f"stream_{stream['id']}"
             state[stream_id] = {}
             #state[stream_id]['activation_blocks'] = []
-
             if 'action_block' in stream:
+                state[stream_id]['action_block'] = stream['action_block']
+            else:
+                state[stream_id]['action_block'] = None
+
+            if 'activation_blocks' in stream:
                 state[stream_id]['activation_blocks'] = [{'id': s['id']} for s in stream['activation_blocks']]
                 for i, act in enumerate(stream['activation_blocks']):
-                    print(f"{stream['activation_blocks'][i]=}")
                     if 'numbers' in act and len(act['numbers']):
                         for num in stream['activation_blocks'][i]['numbers']:
                             if stream['activation_blocks'][i]['numbers'][num] is None:
@@ -268,11 +289,9 @@ class Bot():
                     else:
                         state[stream_id]['activation_blocks'][i]['conditions_number'] = None
 
-                state[stream_id]['action_block'] = stream['action_block']
                 state[stream_id]['trailing_id'] = stream['trailing_id']
                 state[stream_id]['max_price'] = stream['max_price']
-            else:
-                state[stream_id]['action_block'] = None
+
 
         state['total_balance'] = total_balance
         state['total_leverage'] = total_leverage
@@ -353,6 +372,7 @@ def trade_loop(launch, robot_is_stoped):
         mode = Robot(launch)
 
     mode.init_launch()
+    #mode.get_state()
     mode.prepare_tables()
     # цикл по прайс
     while True:
