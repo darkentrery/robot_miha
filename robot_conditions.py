@@ -49,9 +49,10 @@ def check_compare(launch, condition, stream):
     for i, field in enumerate(fields):
         if field in fields_price and fields_price[field] is not None:
             fields[i] = str(fields_price[field])
-        elif 'pnl' in field and field in launch['position'][str(condition['stream'])].__dir__():
+        elif 'pnl' in field:
             id = field.split('_')[1]
-            fields[i] = str(getattr(launch['position'][str(id)], 'pnl'))
+            if 'pnl' in launch['position'][str(id)].__dir__():
+                fields[i] = str(getattr(launch['position'][str(id)], 'pnl'))
         elif 'stream' in condition and field in launch['position'][str(condition['stream'])].__dir__():
             fields[i] = str(getattr(launch['position'][str(condition['stream'])], field))
         elif not ('stream' in condition) and field in launch['position'][str(stream['id'])].__dir__():

@@ -306,10 +306,13 @@ class Summary(Connector):
             print('Ошибка получения таблицы с настройками, причина: ')
             print(e)
         rows = self.cursor.fetchone()
-        for row in rows:
+        summary = []
+        for i, row in enumerate(rows):
             if type(row) is decimal.Decimal:
-                row = float(row)
-        return rows
+                summary.append(float(row))
+            else:
+                summary.append(row)
+        return summary
 
 
 

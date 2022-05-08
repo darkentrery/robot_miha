@@ -1,5 +1,4 @@
 import ast
-import decimal
 import time
 
 import robot_positions as positions
@@ -298,7 +297,7 @@ class Robot(Bot):
                 self.position[stream['id']].close = order['order_price']
 
         else:
-            order['balance'] = float(sum[1] / sum[2])
+            order['balance'] = sum[1] / sum[2]
             order['leverage'] = 0
             order['order_price'] = 0
             order['order_size'] = 0
@@ -410,7 +409,7 @@ class Tester(Bot):
         sum = self.summary.get_summary()
 
         order = {}
-        order['balance'] = float(sum[1] / sum[2])
+        order['balance'] = sum[1] / sum[2]
         order['pnl'] = 0
         order['rpl'] = 0
         order['leverage'] = 0
