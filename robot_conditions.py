@@ -23,18 +23,17 @@ def check_condition(launch, condition, candles, stream):
         if check_compare(launch, condition, stream):
             return True
 
-
     return False
 
 
-
 def check_candle(condition, candles):
-    if len(candles) < 3:
+    can = 0
+    if len(candles) < can + 2:
         return False
 
-    if condition['side'] == 'buy' and candles[1]['price'] >= candles[2]['price']:
+    if condition['side'] == 'buy' and candles[can]['price'] >= candles[can + 1]['price']:
         return True
-    elif condition['side'] == 'sell' and candles[1]['price'] < candles[2]['price']:
+    elif condition['side'] == 'sell' and candles[can]['price'] < candles[can + 1]['price']:
         return True
     else:
         return False
@@ -48,8 +47,11 @@ def check_compare(launch, condition, stream):
     fields_price = launch['price'].get_for_compare(launch)
 
     for i, field in enumerate(fields):
-        if field in fields_price:
+        if field in fields_price and fields_price[field] is not None:
             fields[i] = str(fields_price[field])
+        elif 'pnl' in field and field in launch['position'][str(condition['stream'])].__dir__():
+            id = field.split('_')[1]
+            fields[i] = str(getattr(launch['position'][str(id)], 'pnl'))
         elif 'stream' in condition and field in launch['position'][str(condition['stream'])].__dir__():
             fields[i] = str(getattr(launch['position'][str(condition['stream'])], field))
         elif not ('stream' in condition) and field in launch['position'][str(stream['id'])].__dir__():
@@ -85,8 +87,8 @@ def check_trailing(stream, condition, candles):
             id = i - len(candles)
             break
 
-    print(f"{id=}")
-    for c in range(id, -len(candles), -1):
+    # поиск по id
+    for c in range(id, -len(candles) - 1, -1):
         stream['trailing_id'] = candles[c]['id']
         if condition['side'] == 'up':
             activation_price = close * (1 + condition['activation_percent']/100)
@@ -99,7 +101,7 @@ def check_trailing(stream, condition, candles):
                 print(f"{max_price=}")
                 back_price = close + (stream['max_price'] - close) * (1 - condition['back_percent']/100)
                 print(f"{back_price=}")
-                for p in range(c - 1, -len(candles), -1):
+                for p in range(c - 1, -len(candles) - 1, -1):
                     print(f"{p} {float(candles[p]['price'])}")
                     if float(candles[p]['price']) <= back_price:
                         stream['trailing_id'] = None
@@ -114,8 +116,10 @@ def check_trailing(stream, condition, candles):
                 if stream['max_price'] < max_price:
                     stream['max_price'] = max_price
 
+                print(f"{max_price=}")
                 back_price = close + (stream['max_price'] - close) * (1 - condition['back_percent']/100)
-                for p in range(c - 1, -len(candles), -1):
+                print(f"{back_price=}")
+                for p in range(c - 1, -len(candles) - 1, -1):
                     if float(candles[p]['price']) >= back_price:
                         stream['trailing_id'] = None
                         stream['max_price'] = 0
@@ -129,22 +133,21 @@ def check_reject(condition, candles):
 
 def check_reverse(condition, candles):
     print("check_reverse")
+    can = 0
     amount = int(condition['amount'])
-    if len(candles) < amount + 3:
+    if len(candles) < amount + 2:
         return False
     if 'side' in condition and condition['side'] == 'up':
-        for a in range(1, 2):
-            if candles[a]['price'] >= candles[a + 1]['price']:
-                return False
-        for a in range(2, amount + 2):
+        if candles[can]['price'] >= candles[can + 1]['price']:
+            return False
+        for a in range(can + 1, amount + can + 1):
             if candles[a]['price'] <= candles[a + 1]['price']:
                 return False
 
     if 'side' in condition and condition['side'] == 'down':
-        for a in range(1, 2):
-            if candles[a]['price'] <= candles[a + 1]['price']:
-                return False
-        for a in range(2, amount + 2):
+        if candles[can]['price'] <= candles[can + 1]['price']:
+            return False
+        for a in range(can + 1, amount + can + 1):
             if candles[a]['price'] >= candles[a + 1]['price']:
                 return False
 

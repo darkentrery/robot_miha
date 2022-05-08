@@ -38,15 +38,11 @@ class Bot():
     # наполнение массива launch
     def init_launch(self):
         self.config.get_streams(self.launch)
-
-        self.launch['rpl_total_percent'] = 0
-        self.launch['rpl_total'] = 0
-        null_order = self.get_null_order(None)
+        self.prepare_tables()
+        self.launch['last_id'] = 0
 
         for i, stream in enumerate(self.launch['streams']):
-            stream['order'] = null_order
             self.position[stream['id']] = positions.Position()
-
             host = 'http://' + data[f"host_exchange_{stream['id']}"]
             stream['url'] = stream.setdefault('url', host)
 
@@ -64,36 +60,17 @@ class Bot():
             stream['was_close'] = False
             stream['was_open'] = False
 
-            # проверка наличия и создание таблицы позиций
-            self.pos.create_table_positions(stream)
+        self.get_state()
+        for i, stream in enumerate(self.launch['streams']):
+            null_order = self.get_null_order(stream)
+            stream['order'] = null_order
+            print(f"{stream['order']=}")
 
         self.launch['position'] = self.position
 
     def get_state(self):
-        self.state = self.config.db_get_state()
-        if self.state:
-            self.launch['last_id'] = self.state['last_id']
-            for stream in self.launch['streams']:
-                id =f"stream_{stream['id']}"
-                stream['action_block'] = self.state[id]['action_block']
-                if stream['algorithm']:
-                    stream['activation_blocks'] = self.get_activation_blocks(stream['action_block'], stream['blocks'])
-                    self.set_default_numbers(stream)
-
-                if 'max_price' in self.state[id]:
-                    stream['max_price'] = self.state[id]['max_price']
-                if 'trailing_id' in self.state[id]:
-                    stream['trailing_id'] = self.state[id]['trailing_id']
-
-                if 'activation_blocks' in self.state[id]:
-                    for block in stream['activation_blocks']:
-                        for i in self.state[id]['activation_blocks']:
-                            if block['id'] == i['id'] and i['conditions_number'] is not None:
-                                for num in block['numbers']:
-                                    if int(num) <= int(i['conditions_number']):
-                                        block['numbers'][num] = None
-
-        print(f"load_{self.state=}")
+        self.launch['rpl_total_percent'] = 0
+        self.launch['rpl_total'] = 0
 
     # преобразование полученных данных из таблиц алгоритмов в форму словаря
     def convert_algorithm_data(self, algorithm_data):
@@ -140,6 +117,10 @@ class Bot():
         self.candles = self.price.get_candles(self.launch)
 
     def check_conditions_in_streams(self):
+        for stream in self.launch['streams']:
+            if 'direction' in stream['order']:
+                self.position[stream['id']].update_pnl(self.candles[0]['price'], stream['order']['direction'])
+
         for stream in self.launch['streams']:
             if len(self.candles) > 1 and stream['algorithm']:
                 self.check_block(stream)
@@ -237,16 +218,16 @@ class Bot():
         total = {'rpl_total': 0, 'rpl_total_percent': 0}
         balance = 100  # !!!!!
         for stream in self.launch['streams']:
-            if 'direction' in stream['order']:
-                self.position[stream['id']].update_pnl(float(self.candles[0]['price']), stream['order']['direction'])
+            #if 'direction' in stream['order']:
+            #    self.position[stream['id']].update_pnl(self.candles[0]['price'], stream['order']['direction'])
 
-            if self.position[stream['id']].start:
+            if 'pnl' in self.position[stream['id']].__dir__():
                 set_query += f"pnl_{stream['id']}={str(self.position[stream['id']].pnl)}, "
             else:
                 set_query += f"pnl_{stream['id']}={str(0)}, "
 
         for stream in self.launch['streams']:
-            if 'pnl' in self.position[stream['id']].__dir__() and 'rpl' in self.position[stream['id']].__dir__():
+            if 'rpl' in self.position[stream['id']].__dir__():
                 self.launch['rpl_total'] += self.position[stream['id']].rpl
                 self.launch['rpl_total_percent'] += 100 * self.position[stream['id']].rpl / balance
                 self.position[stream['id']].rpl = 0
@@ -261,6 +242,84 @@ class Bot():
         print(f"{self.launch=}")
 
     # запись состояния в таблицу 0_config
+    def save_trading_state(self):
+        pass
+
+    # создание параметров для записи в прайс до момента срабатывания позиций
+    def get_null_order(self, order):
+        pass
+
+    def prepare_tables(self):
+        pass
+
+    def check_exist_candles(self):
+        pass
+
+    def get_robot_status(self, robot_is_stoped):
+        return False
+
+
+
+
+
+class Robot(Bot):
+
+    # создание параметров для записи в прайс до момента срабатывания позиций
+    def get_null_order(self, stream):
+        print("get_null_order")
+        order = {}
+        order['pnl'] = 0
+
+        sum = self.summary.get_summary()
+        parametrs = self.pos.get_last_order(stream)
+
+        fields = self.price.get_for_state(self.launch)
+        if fields is not None:
+            order['pnl'] = fields[f"pnl_{stream['id']}"]
+
+        if parametrs is not None:
+            order['balance'] = parametrs['balance']
+            order['leverage'] = parametrs['leverage']
+            order['order_price'] = parametrs['order_price']
+            order['order_size'] = parametrs['order_size']
+            order['position_price'] = parametrs['position_price']
+            order['position_size'] = parametrs['position_size']
+            order['rpl'] = parametrs['rpl']
+            if parametrs['position_size']:
+                self.position[stream['id']].start = True
+                self.position[stream['id']].balance = parametrs['balance']
+                self.position[stream['id']].leverage = parametrs['leverage']
+                self.position[stream['id']].order_price = parametrs['order_price']
+                self.position[stream['id']].order_size = parametrs['order_size']
+                self.position[stream['id']].position_price = parametrs['position_price']
+                self.position[stream['id']].position_size = parametrs['position_size']
+                self.position[stream['id']].rpl = parametrs['rpl']
+                self.position[stream['id']].pnl = order['pnl']
+                self.position[stream['id']].close = order['order_price']
+
+        else:
+            order['balance'] = float(sum[1] / sum[2])
+            order['leverage'] = 0
+            order['order_price'] = 0
+            order['order_size'] = 0
+            order['position_price'] = 0
+            order['position_size'] = 0
+            order['rpl'] = 0
+
+        return order
+
+    def prepare_tables(self):
+        print("prepare_tables")
+        if self.config.db_get_state() is None:
+            # удаление информации из таблицы прайс
+            self.price.delete_pnl_from_price(self.launch)
+
+            # очистка таблицы позиций
+            for stream in self.launch['streams']:
+                # проверка наличия и создание таблицы позиций
+                self.pos.create_table_positions(stream)
+                self.pos.clear_table_positions(stream)
+
     def save_trading_state(self):
         total_balance = 0
         total_leverage = 0
@@ -292,61 +351,69 @@ class Bot():
                 state[stream_id]['trailing_id'] = stream['trailing_id']
                 state[stream_id]['max_price'] = stream['max_price']
 
-
         state['total_balance'] = total_balance
         state['total_leverage'] = total_leverage
         state['last_id'] = self.launch['last_id']
         print(f"{state=}")
         self.config.save_state(state)
 
+    def get_state(self):
+        self.launch['rpl_total_percent'] = 0
+        self.launch['rpl_total'] = 0
 
-    # создание параметров для записи в прайс до момента срабатывания позиций
-    def get_null_order(self, order):
-        pass
+        self.state = self.config.db_get_state()
+        if self.state:
+            self.launch['last_id'] = self.state['last_id']
+            fields = self.price.get_for_state(self.launch)
+            if fields is not None:
+                self.launch['rpl_total_percent'] = fields['rpl_total_percent']
+                self.launch['rpl_total'] = fields['rpl_total']
 
-    def check_exist_candles(self):
-        pass
+            for stream in self.launch['streams']:
+                id =f"stream_{stream['id']}"
+                stream['action_block'] = self.state[id]['action_block']
+                if stream['algorithm']:
+                    stream['activation_blocks'] = self.get_activation_blocks(stream['action_block'], stream['blocks'])
+                    self.set_default_numbers(stream)
 
-    def get_robot_status(self, robot_is_stoped):
-        return False
+                if 'max_price' in self.state[id]:
+                    stream['max_price'] = self.state[id]['max_price']
+                if 'trailing_id' in self.state[id]:
+                    stream['trailing_id'] = self.state[id]['trailing_id']
 
+                if 'activation_blocks' in self.state[id]:
+                    for block in stream['activation_blocks']:
+                        for i in self.state[id]['activation_blocks']:
+                            if block['id'] == i['id'] and i['conditions_number'] is not None:
+                                for num in block['numbers']:
+                                    if int(num) <= int(i['conditions_number']):
+                                        block['numbers'][num] = None
 
+        print(f"load_{self.state=}")
 
-
-
-class Robot(Bot):
-    # создание параметров для записи в прайс до момента срабатывания позиций
-    def get_null_order(self, order):
-        pass
-        return order
-
-    def prepare_tables(self):
-        print("prepare_tables")
 
     def get_robot_status(self, robot_is_stoped):
         return False
 
     def check_exist_candles(self):
         if not self.candles:
-            time.sleep(1)
-            log_condition(get_cur_time(), "wait tick")
+            print(f"В таблице price нет новых строк, последняя строка {self.launch['last_id']}")
+            return False
         return True
 
 
 class Tester(Bot):
-    #def __init__(self, launch):
-    #    Bot.__init__(launch)
 
     # создание параметров для записи в прайс до момента срабатывания позиций
-    def get_null_order(self, order):
+    def get_null_order(self, stream):
         print("get_null_order")
         sum = self.summary.get_summary()
-        if not order:
-            order = {}
-            order['balance'] = float(sum[1] / sum[2])
-            order['pnl'] = 0
-            order['rpl'] = 0
-            order['leverage'] = 0
+
+        order = {}
+        order['balance'] = float(sum[1] / sum[2])
+        order['pnl'] = 0
+        order['rpl'] = 0
+        order['leverage'] = 0
         return order
 
     def prepare_tables(self):
@@ -356,6 +423,8 @@ class Tester(Bot):
 
         # очистка таблицы позиций
         for stream in self.launch['streams']:
+            # проверка наличия и создание таблицы позиций
+            self.pos.create_table_positions(stream)
             self.pos.clear_table_positions(stream)
 
     def check_exist_candles(self):
@@ -372,8 +441,7 @@ def trade_loop(launch, robot_is_stoped):
         mode = Robot(launch)
 
     mode.init_launch()
-    #mode.get_state()
-    mode.prepare_tables()
+
     # цикл по прайс
     while True:
         if mode.get_robot_status(robot_is_stoped):

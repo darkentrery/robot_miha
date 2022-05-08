@@ -1,3 +1,5 @@
+import decimal
+
 import pymysql
 import time
 import json
@@ -61,7 +63,7 @@ class Price(Connector):
             query = f"SELECT id, time, close FROM {self.price_table} WHERE id <= {launch['cur_id']} order by id desc LIMIT 20"
             self.cursor.execute(query)
             rows = self.cursor.fetchall()
-            candles = [{'id': r[0], 'time': r[1], 'price': r[2]} for r in rows]
+            candles = [{'id': r[0], 'time': r[1], 'price': float(r[2])} for r in rows]
             return candles
 
         except Exception as e:
@@ -76,7 +78,6 @@ class Price(Connector):
         set_query = [f"pnl_{stream['id']} = NUll" for stream in launch['streams']]
         set_query = ", ".join(set_query)
 
-
         query = f"UPDATE {self.price_table} SET {set_query}, rpl_total = NULL, rpl_total_percent = NULL"
         self.cursor.execute(query)
         self.cnx.commit()
@@ -86,10 +87,33 @@ class Price(Connector):
         self.cursor.execute(query)
         row = self.cursor.fetchall()
         columns = [r[0] for r in row]
+        query = f"SELECT * FROM {self.price_table} WHERE id = {launch['cur_id']} order by id desc LIMIT 1"
+        self.cursor.execute(query)
+        row = self.cursor.fetchone()
+        fields = None
+        if row is not None:
+            fields = dict(zip(columns, row))
+            for field in fields:
+                if type(fields[field]) is decimal.Decimal:
+                    fields[field] = float(fields[field])
+
+        return fields
+
+    def get_for_state(self, launch):
+        query = f"SHOW COLUMNS FROM {self.database}.{self.price_table}"
+        self.cursor.execute(query)
+        row = self.cursor.fetchall()
+        columns = [r[0] for r in row]
         query = f"SELECT * FROM {self.price_table} WHERE id = {launch['last_id']} order by id desc LIMIT 1"
         self.cursor.execute(query)
         row = self.cursor.fetchone()
-        fields = dict(zip(columns, row))
+        fields = None
+        if row is not None:
+            fields = dict(zip(columns, row))
+            for field in fields:
+                if type(fields[field]) is decimal.Decimal:
+                    fields[field] = float(fields[field])
+
         return fields
 
 
@@ -162,8 +186,9 @@ class Config(Connector):
         try:
             query = f"SELECT trading_state FROM {self.config_table} WHERE symbol = '{self.symbol}'"
             self.cursor.execute(query)
-            result = self.cursor.fetchone()
-            result = json.loads(result[0])
+            result = self.cursor.fetchone()[0]
+            if result is not None:
+                result = json.loads(result)
             return result
 
         except Exception as e:
@@ -190,11 +215,12 @@ class Algo(Connector):
         try:
             query = f"SELECT * FROM {stream['algorithm']}"
             self.cursor.execute(query)
+            rows = self.cursor.fetchall()
 
         except Exception as e:
             print('Ошибка получения таблицы с настройками, причина: ')
             print(e)
-        rows = self.cursor.fetchall()
+
         return rows
 
 
@@ -225,14 +251,19 @@ class Positions(Connector):
             print(e)
 
     def get_last_order(self, stream):
-        parametrs = {}
-        query = f"SELECT balance, leverage, order_price, order_size, position_price, position_size FROM {self.symbol}_pos_{stream['id']} order by id desc LIMIT 1"
+        query = f"SHOW COLUMNS FROM {self.database}.{self.symbol}_pos_{stream['id']}"
         self.cursor.execute(query)
-        for (parametrs['balance'], parametrs['leverage'], parametrs['order_price'], parametrs['order_size'],
-             parametrs['position_price'],
-             parametrs['position_size']) in self.cursor:
-             return parametrs
-
+        row = self.cursor.fetchall()
+        columns = [r[0] for r in row]
+        query = f"SELECT * FROM {self.symbol}_pos_{stream['id']} order by id desc LIMIT 1"
+        self.cursor.execute(query)
+        row = self.cursor.fetchone()
+        parametrs = None
+        if row is not None:
+            parametrs = dict(zip(columns, row))
+            for parametr in parametrs:
+                if type(parametrs[parametr]) is decimal.Decimal:
+                    parametrs[parametr] = float(parametrs[parametr])
         return parametrs
 
     def db_insert_position(self, stream, candle, parametrs):
@@ -275,6 +306,9 @@ class Summary(Connector):
             print('Ошибка получения таблицы с настройками, причина: ')
             print(e)
         rows = self.cursor.fetchone()
+        for row in rows:
+            if type(row) is decimal.Decimal:
+                row = float(row)
         return rows
 
 

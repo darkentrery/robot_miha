@@ -1,42 +1,39 @@
-import ast
-import time
-import requests
-import decimal
-
 
 class Position():
     def __init__(self):
         self.start = False
 
-    def first_start(self, balance, leverage, order_size, order_price, position_size, position_price, close):
+    def first_start(self, balance: float, leverage: float, order_size: float, order_price: float, position_size: float,
+                    position_price: float, close: float):
 
         if 'balance' in self.__dir__():
             #self.balance += self.rpl
             pass
         else:
-            self.balance = float(balance)
+            self.balance = balance
 
-        self.leverage = float(leverage)
-        self.order_size = float(order_size)
-        self.order_price = float(order_price)
-        self.position_size = float(position_size)
-        self.position_price = float(position_price)
-        self.close = float(close)
+        self.leverage = leverage
+        self.order_size = order_size
+        self.order_price = order_price
+        self.position_size = position_size
+        self.position_price = position_price
+        self.close = close
         self.pnl = 0 #(self.close - self.position_price) * self.position_size
         self.rpl = 0
         self.start = True
 
-    def update_pnl(self, close_0, direction):
+    def update_pnl(self, close: float, direction):
         if self.start:
-            self.close = close_0
+            self.close = close
             if direction == 'long':
                 self.pnl = (self.close - self.position_price) * self.position_size
             elif direction == 'short':
                 self.pnl = (self.position_price - self.close) * self.position_size
+        else:
+            self.pnl = 0
+        print(f"{self.pnl=}")
 
-
-
-    def update(self, leverage, close_0, balance):
+    def update(self, leverage: float, close_0: float, balance):
         self.balance = balance
 
         leverage_0 = self.leverage
@@ -65,7 +62,6 @@ class Position():
 
         self.position_size += self.order_size
 
-
         return self.balance, self.leverage, self.order_size, self.order_price, self.position_size, self.position_price, \
                self.close, self.rpl
 
@@ -85,12 +81,12 @@ def update_position(launch, stream, block, candles, position):
         launch['pos'].db_insert_position(local_stream, candle, local_stream['order'])
 
 
-def get_leverage(action, parametrs):
-    leverage_0 = decimal.Decimal(parametrs['leverage'])
+def get_leverage(action, parametrs) -> float:
+    leverage_0 = parametrs['leverage']
     if 'leverage_up' in action:
         leverage = leverage_0 + action['leverage_up']
     elif 'leverage_down' in action:
-        down = decimal.Decimal(action['leverage_down'].strip('%'))
+        down = float(action['leverage_down'].strip('%'))
         leverage = leverage_0 * (1 - down / 100)
     else:
         leverage = leverage_0
@@ -100,48 +96,47 @@ def get_leverage(action, parametrs):
             leverage = action['leverage_max']
     return leverage
 
-def get_balance(launch, action, parametrs):
+def get_balance(launch, action, parametrs) -> float:
     balance = parametrs['balance']
     if 'balance' in action:
-        up = decimal.Decimal(action['balance'].strip('%'))
+        up = float(action['balance'].strip('%'))
         sum = launch['summary'].get_summary()
         balance = sum[1] / sum[2]
-        balance = decimal.Decimal(balance) * up / 100
+        balance = balance * up / 100
 
     return balance
 
 
 def get_params(launch, stream, block, action, candles, position, id):
-    candle = candles[0]
+    can = 0
     print(f"{candles=}")
-    parametrs = launch['pos'].get_last_order(stream)
-    #direction = stream['activation_blocks'][0]['actions'][0]['direction']
+    #parametrs = launch['pos'].get_last_order(stream)
     direction = action['direction']
-    #print(f"{direction=}")
-    #print(f"{parametrs=}")
+    parametrs = {}
+    parametrs['balance'] = stream['order']['balance']
+    parametrs['leverage'] = stream['order']['leverage']
 
     if not position[stream['id']].start:
-        sum = launch['summary'].get_summary()
         parametrs['balance'] = stream['order']['balance']
-        #parametrs['balance'] = sum[1] / sum[2]
         parametrs['leverage'] = stream['order']['leverage']
         parametrs['order_price'] = float(0)
         parametrs['order_size'] = float(0)
         parametrs['position_price'] = float(0)
         parametrs['position_size'] = float(0)
-        #parametrs['last'] = False
         position[stream['id']].first_start(parametrs['balance'], parametrs['leverage'], parametrs['order_price'],
-                                           parametrs['order_size'], parametrs['position_price'],
-                                           parametrs['position_size'], candles[1]['price'])
+                                           parametrs['order_size'], parametrs['position_price'], parametrs['position_size'],
+                                           candles[can]['price'])
 
     leverage = get_leverage(action, parametrs)
-    if not leverage:
-        position[stream['id']].start = False
-    print(f"{leverage=}")
+
     balance = get_balance(launch, action, parametrs)
 
-    params = position[stream['id']].update(float(leverage), float(candles[1]['price']), float(balance))
-    position[stream['id']].update_pnl(float(candles[0]['price']), direction)
+    position[stream['id']].update_pnl(candles[can]['price'], direction)
+
+    params = position[stream['id']].update(leverage, candles[can]['price'], balance)
+
+    if not leverage:
+        position[stream['id']].start = False
 
     params_name = ('balance', 'leverage', 'order_size', 'order_price', 'position_size', 'position_price', 'price', 'rpl')
     params_dict = dict(zip(params_name, params))
