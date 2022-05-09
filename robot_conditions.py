@@ -23,6 +23,10 @@ def check_condition(launch, condition, candles, stream):
         if check_compare(launch, condition, stream):
             return True
 
+    elif condition['type'] == 'border_compare':
+        if check_border_compare(launch, condition, stream):
+            return True
+
     return False
 
 
@@ -154,6 +158,44 @@ def check_reverse(condition, candles):
 
     print("Good")
     return True
+
+def check_border_compare(launch, condition, stream):
+    if launch['cur_id'] < 3:
+        return False
+    can = 0
+    first, second = launch['price'].get_data_border_compare(launch, condition['data_first'], condition['data_second'])
+    print(f"{stream['first_1']=} {stream['second_1']=}")
+    if condition['side'] == 'up':
+        if first[can] <= first[can + 1] and first[can + 1] >= first[can + 2]:
+            if stream['first_1'] is None:
+                stream['first_1'] = first[can + 1]
+                stream['second_1'] = second[can + 1]
+            else:
+                if stream['first_1'] <= first[can + 1]:
+                    if eval(f"{stream['second_1']} {condition['compare_second']} {second[can + 1]}"):
+                        stream['first_1'] = None
+                        stream['second_1'] = None
+                        return True
+                    else:
+                        stream['first_1'] = first[can + 1]
+                        stream['second_1'] = second[can + 1]
+
+    elif condition['side'] == 'down':
+        if first[can] >= first[can + 1] and first[can + 1] <= first[can + 2]:
+            if stream['first_1'] is None:
+                stream['first_1'] = first[can + 1]
+                stream['second_1'] = second[can + 1]
+            else:
+                if stream['first_1'] >= first[can + 1]:
+                    if eval(f"{stream['second_1']} {condition['compare_second']} {second[can + 1]}"):
+                        stream['first_1'] = None
+                        stream['second_1'] = None
+                        return True
+                    else:
+                        stream['first_1'] = first[can + 1]
+                        stream['second_1'] = second[can + 1]
+    return False
+
 
 
 

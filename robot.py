@@ -51,6 +51,8 @@ class Bot():
 
                 stream['trailing_id'] = None
                 stream['max_price'] = 0
+                stream['first_1'] = None
+                stream['second_1'] = None
 
                 if not ('action_block' in stream):
                     stream['action_block'] = None
@@ -152,7 +154,6 @@ class Bot():
                 elif not ('number' in condition) and block['numbers']['1'] is not None:
                     block['numbers']['1'] += 1
 
-            print(f"{block['numbers']=}")
             block['numbers'] = dict(sorted(block['numbers'].items(), key=lambda x: x[0]))
 
 

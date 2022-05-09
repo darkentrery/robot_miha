@@ -99,6 +99,15 @@ class Price(Connector):
 
         return fields
 
+    def get_data_border_compare(self, launch, data_first, data_second):
+        query = f"SELECT {data_first}, {data_second} FROM {self.price_table} WHERE id <= {launch['cur_id']} order by id desc LIMIT 3"
+        self.cursor.execute(query)
+        rows = self.cursor.fetchall()
+        first = [float(r[0]) for r in rows]
+        second = [float(r[1]) for r in rows]
+        print(f"{first=} {second=}")
+        return first, second
+
     def get_for_state(self, launch):
         query = f"SHOW COLUMNS FROM {self.database}.{self.price_table}"
         self.cursor.execute(query)
