@@ -50,7 +50,7 @@ class Bot():
                 stream['blocks'] = self.convert_algorithm_data(algorithm_data)
 
                 stream['trailing_id'] = None
-                stream['max_price'] = 0
+                stream['max_price'] = None
                 stream['first_1'] = None
                 stream['second_1'] = None
 

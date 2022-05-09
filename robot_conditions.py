@@ -100,7 +100,7 @@ def check_trailing(stream, condition, candles):
             print(f"{activation_price=} {float(candles[c]['price'])}")
             if float(candles[c]['price']) >= activation_price:
                 max_price = float(candles[c]['price'])
-                if stream['max_price'] < max_price:
+                if stream['max_price'] is None or stream['max_price'] < max_price:
                     stream['max_price'] = max_price
 
                 print(f"{max_price=}")
@@ -110,7 +110,7 @@ def check_trailing(stream, condition, candles):
                     print(f"{p} {float(candles[p]['price'])}")
                     if float(candles[p]['price']) <= back_price:
                         stream['trailing_id'] = None
-                        stream['max_price'] = 0
+                        stream['max_price'] = None
                         return True
 
         elif condition['side'] == 'down':
@@ -118,7 +118,7 @@ def check_trailing(stream, condition, candles):
             print(f"{activation_price=} {float(candles[c]['price'])}")
             if float(candles[c]['price']) <= activation_price:
                 max_price = float(candles[c]['price'])
-                if stream['max_price'] < max_price:
+                if stream['max_price'] is None or stream['max_price'] > max_price:
                     stream['max_price'] = max_price
 
                 print(f"{max_price=}")
@@ -127,7 +127,7 @@ def check_trailing(stream, condition, candles):
                 for p in range(c - 1, -len(candles) - 1, -1):
                     if float(candles[p]['price']) >= back_price:
                         stream['trailing_id'] = None
-                        stream['max_price'] = 0
+                        stream['max_price'] = None
                         return True
 
     return False
@@ -173,8 +173,8 @@ def check_border_compare(launch, condition, stream):
             else:
                 if stream['first_1'] <= first[can + 1]:
                     if eval(f"{stream['second_1']} {condition['compare_second']} {second[can + 1]}"):
-                        stream['first_1'] = None
-                        stream['second_1'] = None
+                        stream['first_1'] = first[can + 1]
+                        stream['second_1'] = second[can + 1]
                         return True
                     else:
                         stream['first_1'] = first[can + 1]
@@ -188,8 +188,8 @@ def check_border_compare(launch, condition, stream):
             else:
                 if stream['first_1'] >= first[can + 1]:
                     if eval(f"{stream['second_1']} {condition['compare_second']} {second[can + 1]}"):
-                        stream['first_1'] = None
-                        stream['second_1'] = None
+                        stream['first_1'] = first[can + 1]
+                        stream['second_1'] = second[can + 1]
                         return True
                     else:
                         stream['first_1'] = first[can + 1]
