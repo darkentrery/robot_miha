@@ -51,8 +51,10 @@ class Bot():
 
                 stream['trailing_id'] = None
                 stream['max_price'] = None
-                stream['first_1'] = None
-                stream['second_1'] = None
+                stream['first_up'] = None
+                stream['second_up'] = None
+                stream['first_down'] = None
+                stream['second_down'] = None
 
                 if not ('action_block' in stream):
                     stream['action_block'] = None

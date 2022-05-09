@@ -164,43 +164,43 @@ def check_border_compare(launch, condition, stream):
         return False
     can = 0
     first, second = launch['price'].get_data_border_compare(launch, condition['data_first'], condition['data_second'])
-    print(f"{stream['first_1']=} {stream['second_1']=}")
+    print(f"{stream['first_up']=} {stream['second_up']=}")
     if condition['side'] == 'up':
         if first[can] <= first[can + 1] and first[can + 1] >= first[can + 2]:
-            if stream['first_1'] is None:
-                stream['first_1'] = first[can + 1]
-                stream['second_1'] = second[can + 1]
+            if stream['first_up'] is None:
+                stream['first_up'] = first[can + 1]
+                stream['second_up'] = second[can + 1]
             else:
-                if stream['first_1'] <= first[can + 1]:
-                    if eval(f"{stream['second_1']} {condition['compare_second']} {second[can + 1]}"):
-                        stream['first_1'] = first[can + 1]
-                        stream['second_1'] = second[can + 1]
-                        if 'action' in condition and condition['action'] == 'clean_border':
-                            stream['first_1'] = None
-                            stream['second_1'] = None
+                if stream['first_up'] <= first[can + 1]:
+                    if eval(f"{stream['second_up']} {condition['compare_second']} {second[can + 1]}"):
+                        stream['first_up'] = first[can + 1]
+                        stream['second_up'] = second[can + 1]
+                        if 'action' in condition and condition['action'] == 'clear_border':
+                            stream['first_up'] = None
+                            stream['second_up'] = None
                         return True
                     else:
-                        stream['first_1'] = first[can + 1]
-                        stream['second_1'] = second[can + 1]
+                        stream['first_up'] = first[can + 1]
+                        stream['second_up'] = second[can + 1]
 
 
     elif condition['side'] == 'down':
         if first[can] >= first[can + 1] and first[can + 1] <= first[can + 2]:
-            if stream['first_1'] is None:
-                stream['first_1'] = first[can + 1]
-                stream['second_1'] = second[can + 1]
+            if stream['first_down'] is None:
+                stream['first_down'] = first[can + 1]
+                stream['second_down'] = second[can + 1]
             else:
-                if stream['first_1'] >= first[can + 1]:
-                    if eval(f"{stream['second_1']} {condition['compare_second']} {second[can + 1]}"):
-                        stream['first_1'] = first[can + 1]
-                        stream['second_1'] = second[can + 1]
-                        if 'action' in condition and condition['action'] == 'clean_border':
-                            stream['first_1'] = None
-                            stream['second_1'] = None
+                if stream['first_down'] >= first[can + 1]:
+                    if eval(f"{stream['second_down']} {condition['compare_second']} {second[can + 1]}"):
+                        stream['first_down'] = first[can + 1]
+                        stream['second_down'] = second[can + 1]
+                        if 'action' in condition and condition['action'] == 'clear_border':
+                            stream['first_down'] = None
+                            stream['second_down'] = None
                         return True
                     else:
-                        stream['first_1'] = first[can + 1]
-                        stream['second_1'] = second[can + 1]
+                        stream['first_down'] = first[can + 1]
+                        stream['second_down'] = second[can + 1]
 
     return False
 
